@@ -1,7 +1,15 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional, Union
 from jose import jwt, JWTError
+
+# Workaround for compatibility between passlib and bcrypt 4.0.0+ in Python 3.11+
+import bcrypt
+if not hasattr(bcrypt, "__about__"):
+    class BcryptAbout:
+        __version__ = bcrypt.__version__
+    bcrypt.__about__ = BcryptAbout
 from passlib.context import CryptContext
+
 from app.core.config import settings
 from app.core.logging import logger
 
