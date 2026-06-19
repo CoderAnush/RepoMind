@@ -32,11 +32,15 @@ class Settings(BaseSettings):
         return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     # Vector DB (Qdrant)
+    # QDRANT_URL takes priority and is used for cloud deployments (e.g. Qdrant Cloud via Render env var).
+    # QDRANT_HOST/PORT are used as local-only fallbacks when QDRANT_URL is not set.
+    QDRANT_URL: Optional[str] = None          # e.g. https://xxxx.qdrant.io:6333
     QDRANT_HOST: str = Field(default="localhost")
     QDRANT_PORT: int = Field(default=6333)
     QDRANT_API_KEY: Optional[str] = None
     QDRANT_COLLECTION_CODE: str = "repomind_code"
     QDRANT_COLLECTION_DOCS: str = "repomind_docs"
+    QDRANT_TEST_COLLECTION: str = "repomind_test"
 
     # LLM & Embedding Settings
     OPENAI_API_KEY: Optional[str] = None
