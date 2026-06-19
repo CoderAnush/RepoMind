@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: repomind-backend
+    env: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    plan: free
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+        description: "Supabase connection string with pooled transaction configuration"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: QDRANT_HOST
+        sync: false
+        default: "https://your-qdrant-cluster.cloud.qdrant.io"
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        sync: false
+        default: "openai"
+      - key: REPO_CLONE_DIR
+        value: "/tmp/repomind_clones"

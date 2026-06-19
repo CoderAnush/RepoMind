@@ -1,0 +1,42 @@
+# Python files and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Node / JS dependencies and build outputs
+node_modules/
+dist/
+build/
+.eslintcache
+
+# Environment variables containing secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and OS settings
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Terraform configuration cache and states
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
