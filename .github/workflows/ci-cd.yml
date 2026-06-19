@@ -48,4 +48,4 @@ jobs:
           SECRET_KEY: TESTING_SECRET_KEY_JWT_TOKEN
         run: |
           cd backend
-          python -m pytest -p no:warnings -v
+          python -m pytest -p no:warnings -v > pytest_run.log 2>&1 || { cat pytest_run.log; exit 2; }
