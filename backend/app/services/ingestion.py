@@ -105,13 +105,32 @@ class IngestionService:
             ".pytest_cache", ".mypy_cache", ".tox"
         }
 
-        # Binary and non-source extensions to ignore completely
+        # Binary and non-source extensions to ignore completely (including ML models/data formats)
         binary_extensions = {
-            '.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip', '.tar', '.gz', 
-            '.7z', '.exe', '.dll', '.so', '.dylib', '.pyc', '.pyd', '.class', '.jar', 
-            '.war', '.db', '.sqlite', '.sqlite3', '.mp3', '.mp4', '.avi', '.mov', 
-            '.ttf', '.woff', '.woff2', '.eot', '.svg', '.bin', '.dat', '.xlsx', 
-            '.docx', '.pptx', '.csv', '.parquet', '.lib', '.a', '.obj', '.o'
+            # Images
+            '.png', '.jpg', '.jpeg', '.gif', '.ico', '.svg', '.webp', '.tiff', '.bmp',
+            # Documents / PDFs
+            '.pdf', '.epub',
+            # Archives / Compressed
+            '.zip', '.tar', '.gz', '.7z', '.rar', '.bz2',
+            # Executables / Libraries
+            '.exe', '.dll', '.so', '.dylib', '.bin', '.dat', '.lib', '.a', '.obj', '.o',
+            # Python compiled
+            '.pyc', '.pyd', '.pyo',
+            # Java compiled
+            '.class', '.jar', '.war',
+            # Database / storage formats
+            '.db', '.sqlite', '.sqlite3',
+            # Audio / Video
+            '.mp3', '.mp4', '.avi', '.mov', '.wav', '.flac', '.mkv',
+            # Fonts
+            '.ttf', '.woff', '.woff2', '.eot',
+            # Office documents
+            '.xlsx', '.docx', '.pptx', '.csv', '.parquet',
+            # Machine Learning Models & Serialized Formats (contain NUL bytes/binary data)
+            '.pkl', '.pickle', '.npy', '.npz', '.h5', '.hdf5', '.joblib',
+            '.model', '.weights', '.pt', '.pth', '.onnx', '.pb',
+            '.safetensors', '.feather', '.arrow', '.proto', '.keras'
         }
 
         for root, dirs, files in os.walk(clone_path):
@@ -125,11 +144,15 @@ class IngestionService:
                 _, ext = os.path.splitext(file)
                 ext_lower = ext.lower()
                 
-                # Safeguard 1: Ignore binary/non-code file extensions
+                # Append all files to tree and count them so the user sees the complete structure
+                file_tree.append(rel_path)
+                total_files += 1
+                
+                # Safeguard 1: Ignore binary/non-code file extensions for language/LOC stats
                 if ext_lower in binary_extensions:
                     continue
                     
-                # Safeguard 2: Ignore file size > 500 KB to avoid OOM
+                # Safeguard 2: Ignore file size > 500 KB for LOC count to avoid OOM and skewing language stats
                 try:
                     file_size = os.path.getsize(file_path)
                     if file_size > 500 * 1024:  # 500 KB
@@ -137,10 +160,8 @@ class IngestionService:
                 except Exception:
                     continue
                 
-                file_tree.append(rel_path)
                 lang = extension_map.get(ext_lower, "Other")
                 
-                total_files += 1
                 language_counts[lang] = language_counts.get(lang, 0) + 1
                 
                 # Count lines of code safely (skip binary/corrupt files)

@@ -69,7 +69,7 @@ class AgentService:
                 # ML model / data serialization formats (contain NUL bytes)
                 '.pkl', '.pickle', '.npy', '.npz', '.h5', '.hdf5', '.joblib',
                 '.model', '.weights', '.pt', '.pth', '.onnx', '.pb',
-                '.feather', '.arrow', '.proto', '.safetensors',
+                '.feather', '.arrow', '.proto', '.safetensors', '.keras',
             }
             
             ignore_dirs = {

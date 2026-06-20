@@ -216,7 +216,7 @@ class CodeParser:
         skip_exts = {
             '.pkl', '.pickle', '.npy', '.npz', '.h5', '.hdf5', '.joblib',
             '.model', '.weights', '.pt', '.pth', '.onnx', '.pb',
-            '.parquet', '.feather', '.arrow', '.proto'
+            '.parquet', '.feather', '.arrow', '.proto', '.keras'
         }
         if ext in skip_exts:
             return []
