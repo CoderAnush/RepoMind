@@ -3,9 +3,10 @@ Health check endpoints for infrastructure components.
 
 GET /api/v1/health/qdrant  — Qdrant connectivity, collection list, and smoke-test.
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from app.core.config import settings
 from app.core.logging import logger
+from app.core.database import get_db
 
 router = APIRouter()
 
@@ -59,3 +60,40 @@ def qdrant_health():
             "collections": [],
             "payload_indexes": []
         }
+
+@router.get("/diagnostics", tags=["Health"])
+def diagnostics(db = Depends(get_db)):
+    """
+    Temporary diagnostics endpoint to inspect database rows, job progress, and config keys.
+    """
+    from app.models.document import CodeChunk, GeneratedDocumentation
+    from app.models.repository import Repository
+    from app.models.job import ProcessingJob
+    
+    # 1. Get repository metadata
+    repos = db.query(Repository).all()
+    repo_stats = []
+    for r in repos:
+        chunk_count = db.query(CodeChunk).filter(CodeChunk.repository_id == r.id).count()
+        doc_count = db.query(GeneratedDocumentation).filter(GeneratedDocumentation.repository_id == r.id).count()
+        jobs = db.query(ProcessingJob).filter(ProcessingJob.repository_id == r.id).all()
+        job_info = [{"step": j.step, "status": j.status, "error": j.error_message} for j in jobs]
+        repo_stats.append({
+            "id": r.id,
+            "name": r.name,
+            "status": r.status,
+            "chunks": chunk_count,
+            "docs": doc_count,
+            "jobs": job_info
+        })
+        
+    # 2. Get environment variables info (masked for security)
+    qdrant_url = settings.QDRANT_URL
+    qdrant_key = settings.QDRANT_API_KEY[:10] + "..." if settings.QDRANT_API_KEY else None
+    
+    return {
+        "qdrant_url": qdrant_url,
+        "qdrant_key_prefix": qdrant_key,
+        "repositories": repo_stats
+    }
+
