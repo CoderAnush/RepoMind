@@ -145,7 +145,8 @@ def delete_repository(
         try:
             vector_db.client.delete(
                 collection_name=settings.QDRANT_COLLECTION_CODE,
-                filter=repo_filter
+                points_selector=repo_filter,
+                wait=False
             )
         except Exception:
             pass
@@ -153,7 +154,8 @@ def delete_repository(
         try:
             vector_db.client.delete(
                 collection_name=settings.QDRANT_COLLECTION_DOCS,
-                filter=repo_filter
+                points_selector=repo_filter,
+                wait=False
             )
         except Exception:
             pass
