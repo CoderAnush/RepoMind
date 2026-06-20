@@ -243,60 +243,125 @@ class LLMProviderService:
         query_lower = user_prompt.lower()
         explanation = ""
         
-        # Check if the query is asking about a specific file
-        target_file_item = None
-        for item in file_symbols_map:
-            fpath = item["file_path"]
-            fpath_lower = fpath.lower()
-            fname = fpath.split("/")[-1].lower()
-            if fpath_lower in query_lower or (len(fname) >= 4 and fname in query_lower):
-                target_file_item = item
-                break
+        # Check if the query is specifically asking for a full project/codebase summary
+        is_summary_query = any(x in query_lower for x in [
+            "explain the full project", 
+            "what does this repository do", 
+            "what is this repository", 
+            "explain the project", 
+            "explain the repo", 
+            "repository summary", 
+            "codebase summary", 
+            "project summary", 
+            "system architecture summary",
+            "give me a summary of the repo",
+            "explain the summary of the repo"
+        ]) or query_lower.strip() in ["summary", "explain", "explain the repo", "explain the project"]
 
         # Build intelligent contextual responses
-        if target_file_item:
-            path = target_file_item["file_path"]
-            syms = target_file_item["symbols"]
-            name_lower = path.lower()
-            explanation_sentence = ""
-            if "setup" in name_lower or "package.json" in name_lower or "requirements" in name_lower or "pyproject" in name_lower:
-                explanation_sentence = "Defines dependencies, package installations, execution requirements, and build configuration mappings for the workspace environment."
-            elif "readme" in name_lower or "license" in name_lower or "contributing" in name_lower:
-                explanation_sentence = "Contains documentation, user manuals, onboarding instructions, licensing permissions, and project description texts."
-            elif "test" in name_lower or "spec" in name_lower:
-                explanation_sentence = "Contains test suites, assert validations, test fixtures, and mock simulations to verify the correctness of the execution modules."
-            elif "utils" in name_lower or "helper" in name_lower:
-                explanation_sentence = "Provides utility functions, formatting helpers, file I/O wrappers, and general-purpose support classes used across the system."
-            elif "core" in name_lower or "main" in name_lower or "app" in name_lower:
-                explanation_sentence = "Serves as the central runtime hub of the codebase, orchestrating execution pipelines, initializing states, and routing inputs."
-            elif "config" in name_lower or "settings" in name_lower or "env" in name_lower:
-                explanation_sentence = "Manages environmental variables, system runtime variables, database/API connections, and configuration schemas."
-            elif name_lower.endswith((".keras", ".h5", ".pt", ".pth", ".pkl", ".joblib", ".onnx")):
-                explanation_sentence = "Represents a trained machine learning model, weights checkpoint, or serialized neural network architecture file."
-            else:
-                explanation_sentence = "Implements custom code components, business logic rules, data parsing systems, and operation managers."
-                
-            if syms:
-                explanation_sentence += f" Specifically, it exposes the following AST symbols: `{syms}`. These classes/functions are responsible for implementing the key interfaces and callable endpoints of the module."
+        if is_summary_query:
+            # Determine project type dynamically
+            project_type = "general software codebase"
+            framework_hints = []
+            all_paths_lower = [f["file_path"].lower() for f in file_symbols_map]
             
-            # Check context blocks for the file content
-            matching_content = ""
-            for f in context_files:
-                if f["file_path"].lower() == path.lower():
-                    snippet = f["content"][:1000].strip()
-                    if len(f["content"]) > 1000:
-                        snippet += "\n..."
-                    matching_content = f"\n\nHere is a preview of the file content:\n```python\n{snippet}\n```"
-                    break
-                    
-            answer_text = (
-                f"**[Production LLM Simulation Mode - Provider: {selected_provider.upper()}, Model: {selected_model}]**\n\n"
-                f"# File Analysis: `{path}`\n\n"
-                f"**Purpose**: {explanation_sentence}"
-                f"{matching_content}"
+            if any("click" in p or "cli" in p or "arg" in p or "command" in p for p in all_paths_lower):
+                project_type = "Command-Line Interface (CLI) application and scripting library"
+                framework_hints.append("composable CLI decorator workflows")
+            elif any("request" in p or "http" in p or "api" in p or "client" in p for p in all_paths_lower):
+                project_type = "HTTP Client utility library and network communication module"
+                framework_hints.append("REST/HTTP session state management")
+            elif any("fastapi" in p or "flask" in p or "django" in p or "server" in p or "route" in p for p in all_paths_lower):
+                project_type = "Web API service backend application"
+                framework_hints.append("route registration, endpoint handling, and request schema parsing")
+            elif any("test" in p or "spec" in p for p in all_paths_lower):
+                project_type = "software test suite and automated quality verification runner"
+                framework_hints.append("unit testing, mock assertions, and test harness execution")
+
+            summary_intro = (
+                f"The `{repo_name}` repository is a production-grade {project_type}. "
+                f"The codebase contains a total of {total_files} files with {total_loc} lines of code, "
+                f"demonstrating a robust structure organized across multiple layers.\n\n"
+                f"At its core, this project is built using `{languages_str}`. It is structured to separate "
+                f"operational entrypoints, utility helpers, configurations, and core functional logic. "
+                f"By analyzing the module layout, it is clear that the project values modularity and decoupling. "
+                f"Individual modules represent isolated logic units designed to perform specific operations, "
+                f"allowing developers to extend functionality with minimal changes to other systems. "
+                f"The code utilizes standard design patterns to coordinate execution state across components.\n"
             )
             
-        elif any(x in query_lower for x in ["architecture", "modular", "design", "structure", "graph"]):
+            if readme_chunk:
+                summary_intro += f"\n### Project Overview (Parsed from README)\n{readme_chunk}\n"
+            else:
+                summary_intro += (
+                    f"\n### Project Design Goals & System Intent\n"
+                    f"Without a pre-existing README file, the codebase architecture tells a clear story. "
+                    f"The system is built to provide high-performance operations while ensuring clear separations of concern. "
+                    f"The entrypoints link directly to primary logic managers, which then dispatch tasks to helper submodules. "
+                    f"State management is handled explicitly within primary classes, reducing side effects and enabling "
+                    f"straightforward unit testing. Dependency structures indicate a clean import hierarchy where parent modules "
+                    f"orchestrate the execution of children utilities."
+                )
+                
+            # Add detailed architecture section
+            arch_detail = (
+                f"### System Architecture & Modularity Analysis\n"
+                f"The architecture of `{repo_name}` revolves around a unified execution flow. "
+                f"Based on the static analysis of its structure, we can identify several structural layers:\n\n"
+                f"1. **Core Orchestration Layer**: This layer contains the primary modules responsible for routing, "
+                f"execution control, and core state coordination. It maps out the main API or class hierarchies that downstream components rely on.\n"
+                f"2. **Functional Logic Layer**: Modules in this layer implement the custom algorithms and capabilities "
+                f"that define the system's runtime behavior (such as {', '.join(framework_hints) if framework_hints else 'logic routines'}).\n"
+                f"3. **Utility & Support Layer**: Provides generic helpers, helper functions, configurations, "
+                f"and infrastructure connectors to keep the core logic clean and focused on business rules.\n\n"
+                f"By separating concerns in this manner, the system avoids tight coupling, making it easy to maintain, "
+                f"refactor, or scale. The dependencies list indicates clean integration paths, and the language metrics show "
+                f"that the codebase is primarily written for readability and performance."
+            )
+
+            # File-by-File breakdown section
+            file_breakdown = "### Comprehensive File-by-File Codebase Analysis\n"
+            file_breakdown += f"Below is a detailed analysis of the files found in the `{repo_name}` repository, explaining what each file does in the code based on its AST symbols and path structure:\n\n"
+            
+            for idx, item in enumerate(file_symbols_map[:40]):  # Analyze top 40 files in detail to build length
+                path = item["file_path"]
+                syms = item["symbols"]
+                
+                explanation_sentence = ""
+                name_lower = path.lower()
+                
+                if "setup" in name_lower or "package.json" in name_lower or "requirements" in name_lower or "pyproject" in name_lower:
+                    explanation_sentence = "Defines dependencies, package installations, execution requirements, and build configuration mappings for the workspace environment."
+                elif "readme" in name_lower or "license" in name_lower or "contributing" in name_lower:
+                    explanation_sentence = "Contains documentation, user manuals, onboarding instructions, licensing permissions, and project description texts."
+                elif "test" in name_lower or "spec" in name_lower:
+                    explanation_sentence = "Contains test suites, assert validations, test fixtures, and mock simulations to verify the correctness of the execution modules."
+                elif "utils" in name_lower or "helper" in name_lower:
+                    explanation_sentence = "Provides utility functions, formatting helpers, file I/O wrappers, and general-purpose support classes used across the system."
+                elif "core" in name_lower or "main" in name_lower or "app" in name_lower:
+                    explanation_sentence = "Serves as the central runtime hub of the codebase, orchestrating execution pipelines, initializing states, and routing inputs."
+                elif "config" in name_lower or "settings" in name_lower or "env" in name_lower:
+                    explanation_sentence = "Manages environmental variables, system runtime variables, database/API connections, and configuration schemas."
+                else:
+                    explanation_sentence = "Implements custom code components, business logic rules, data parsing systems, and operation managers."
+                    
+                if syms:
+                    explanation_sentence += f" Specifically, it exposes the following AST symbols: `{syms}`. These classes/functions are responsible for implementing the key interfaces and callable endpoints of the module."
+                
+                file_breakdown += f"#### `{path}`\n{explanation_sentence}\n\n"
+
+            if len(file_symbols_map) > 40:
+                file_breakdown += f"*Note: The remaining {len(file_symbols_map) - 40} files in the repository extend these core concepts, implementing specific test configurations, dependency locking, and secondary helpers.*"
+
+            answer_text = (
+                f"**[Production LLM Simulation Mode - Provider: {selected_provider.upper()}, Model: {selected_model}]**\n\n"
+                f"# Detailed Repository Summary & Architecture Review: {repo_name}\n\n"
+                f"{summary_intro}\n\n"
+                f"{arch_detail}\n\n"
+                f"{file_breakdown}"
+            )
+            
+        elif "architecture" in query_lower:
             arch_summary = (
                 f"### Repository Architecture Overview\n"
                 f"The repository `{repo_name}` uses a modular design layout, dividing logic between core functions, "
@@ -341,128 +406,64 @@ class LLMProviderService:
                 f"{auth_summary}"
             )
             
-        elif any(x in query_lower for x in ["explain the full project", "what does this repository do", "what is this repository", "explain the project", "summary", "overview"]):
-            # Determine project type dynamically
-            project_type = "general software codebase"
-            framework_hints = []
-            all_paths_lower = [f["file_path"].lower() for f in file_symbols_map]
-            
-            if any("click" in p or "cli" in p or "arg" in p or "command" in p for p in all_paths_lower):
-                project_type = "Command-Line Interface (CLI) application and scripting library"
-                framework_hints.append("composable CLI decorator workflows")
-            elif any("request" in p or "http" in p or "api" in p or "client" in p for p in all_paths_lower):
-                project_type = "HTTP Client utility library and network communication module"
-                framework_hints.append("REST/HTTP session state management")
-            elif any("fastapi" in p or "flask" in p or "django" in p or "server" in p or "route" in p for p in all_paths_lower):
-                project_type = "Web API service backend application"
-                framework_hints.append("route registration, endpoint handling, and request schema parsing")
-            elif any("test" in p or "spec" in p for p in all_paths_lower):
-                project_type = "software test suite and automated quality verification runner"
-                framework_hints.append("unit testing, mock assertions, and test harness execution")
- 
-            summary_intro = (
-                f"The `{repo_name}` repository is a production-grade {project_type}. "
-                f"The codebase contains a total of {total_files} files with {total_loc} lines of code, "
-                f"demonstrating a robust structure organized across multiple layers.\n\n"
-                f"At its core, this project is built using `{languages_str}`. It is structured to separate "
-                f"operational entrypoints, utility helpers, configurations, and core functional logic. "
-                f"By analyzing the module layout, it is clear that the project values modularity and decoupling. "
-                f"Individual modules represent isolated logic units designed to perform specific operations, "
-                f"allowing developers to extend functionality with minimal changes to other systems. "
-                f"The code utilizes standard design patterns to coordinate execution state across components.\n"
-            )
-            
-            if readme_chunk:
-                summary_intro += f"\n### Project Overview (Parsed from README)\n{readme_chunk}\n"
-            else:
-                summary_intro += (
-                    f"\n### Project Design Goals & System Intent\n"
-                    f"Without a pre-existing README file, the codebase architecture tells a clear story. "
-                    f"The system is built to provide high-performance operations while ensuring clear separations of concern. "
-                    f"The entrypoints link directly to primary logic managers, which then dispatch tasks to helper submodules. "
-                    f"State management is handled explicitly within primary classes, reducing side effects and enabling "
-                    f"straightforward unit testing. Dependency structures indicate a clean import hierarchy where parent modules "
-                    f"orchestrate the execution of children utilities."
-                )
-                
-            # Add detailed architecture section
-            arch_detail = (
-                f"### System Architecture & Modularity Analysis\n"
-                f"The architecture of `{repo_name}` revolves around a unified execution flow. "
-                f"Based on the static analysis of its structure, we can identify several structural layers:\n\n"
-                f"1. **Core Orchestration Layer**: This layer contains the primary modules responsible for routing, "
-                f"execution control, and core state coordination. It maps out the main API or class hierarchies that downstream components rely on.\n"
-                f"2. **Functional Logic Layer**: Modules in this layer implement the custom algorithms and capabilities "
-                f"that define the system's runtime behavior (such as {', '.join(framework_hints) if framework_hints else 'logic routines'}).\n"
-                f"3. **Utility & Support Layer**: Provides generic helpers, helper functions, configurations, "
-                f"and infrastructure connectors to keep the core logic clean and focused on business rules.\n\n"
-                f"By separating concerns in this manner, the system avoids tight coupling, making it easy to maintain, "
-                f"refactor, or scale. The dependencies list indicates clean integration paths, and the language metrics show "
-                f"that the codebase is primarily written for readability and performance."
-            )
- 
-            # File-by-File breakdown section
-            file_breakdown = "### Comprehensive File-by-File Codebase Analysis\n"
-            file_breakdown += f"Below is a detailed analysis of the files found in the `{repo_name}` repository, explaining what each file does in the code based on its AST symbols and path structure:\n\n"
-            
-            for idx, item in enumerate(file_symbols_map[:40]):
-                path = item["file_path"]
-                syms = item["symbols"]
-                explanation_sentence = ""
-                name_lower = path.lower()
-                
-                if "setup" in name_lower or "package.json" in name_lower or "requirements" in name_lower or "pyproject" in name_lower:
-                    explanation_sentence = "Defines dependencies, package installations, execution requirements, and build configuration mappings for the workspace environment."
-                elif "readme" in name_lower or "license" in name_lower or "contributing" in name_lower:
-                    explanation_sentence = "Contains documentation, user manuals, onboarding instructions, licensing permissions, and project description texts."
-                elif "test" in name_lower or "spec" in name_lower:
-                    explanation_sentence = "Contains test suites, assert validations, test fixtures, and mock simulations to verify the correctness of the execution modules."
-                elif "utils" in name_lower or "helper" in name_lower:
-                    explanation_sentence = "Provides utility functions, formatting helpers, file I/O wrappers, and general-purpose support classes used across the system."
-                elif "core" in name_lower or "main" in name_lower or "app" in name_lower:
-                    explanation_sentence = "Serves as the central runtime hub of the codebase, orchestrating execution pipelines, initializing states, and routing inputs."
-                elif "config" in name_lower or "settings" in name_lower or "env" in name_lower:
-                    explanation_sentence = "Manages environmental variables, system runtime variables, database/API connections, and configuration schemas."
-                else:
-                    explanation_sentence = "Implements custom code components, business logic rules, data parsing systems, and operation managers."
-                    
-                if syms:
-                    explanation_sentence += f" Specifically, it exposes the following AST symbols: `{syms}`. These classes/functions are responsible for implementing the key interfaces and callable endpoints of the module."
-                
-                file_breakdown += f"#### `{path}`\n{explanation_sentence}\n\n"
- 
-            if len(file_symbols_map) > 40:
-                file_breakdown += f"*Note: The remaining {len(file_symbols_map) - 40} files in the repository extend these core concepts, implementing specific test configurations, dependency locking, and secondary helpers.*"
- 
-            answer_text = (
-                f"**[Production LLM Simulation Mode - Provider: {selected_provider.upper()}, Model: {selected_model}]**\n\n"
-                f"# Detailed Repository Summary & Architecture Review: {repo_name}\n\n"
-                f"{summary_intro}\n\n"
-                f"{arch_detail}\n\n"
-                f"{file_breakdown}"
-            )
-            
         else:
-            matches_text = ""
-            for f in context_files[:3]:
-                snippet = f["content"][:300].strip() + "..." if len(f["content"]) > 300 else f["content"].strip()
-                matches_text += f"- **File**: `{f['file_path']}` (Symbol: `{f['symbol']}`)\n```python\n{snippet}\n```\n"
+            # Smart TF-IDF-like keyword matcher for context files
+            query_words = [w.strip("?,.()\"'") for w in query_lower.split() if len(w) > 3]
+            best_file = None
+            best_score = 0
             
-            if not matches_text and file_symbols_map:
-                matches_text = "I found the following files in the repository:\n"
-                for item in file_symbols_map[:15]:
-                    f = item["file_path"]
-                    syms = item["symbols"]
-                    if syms:
-                        matches_text += f"- `{f}` (Symbols: `{syms}`)\n"
-                    else:
-                        matches_text += f"- `{f}`\n"
+            for f in context_files:
+                score = 0
+                content_lower = f["content"].lower()
+                file_path_lower = f["file_path"].lower()
+                symbol_lower = f["symbol"].lower()
+                for word in query_words:
+                    if word in content_lower:
+                        score += content_lower.count(word)
+                    if word in file_path_lower:
+                        score += 5
+                    if word in symbol_lower:
+                        score += 10
+                if score > best_score:
+                    best_score = score
+                    best_file = f
+                    
+            if best_file and best_score > 0:
+                answer_text = (
+                    f"**[Production LLM Simulation Mode - Provider: {selected_provider.upper()}, Model: {selected_model}]**\n\n"
+                    f"Based on the query and a matched context chunk in the codebase, here is the implementation analysis for `{best_file['file_path']}`:\n\n"
+                    f"### Code Implementation Preview\n"
+                    f"```python\n"
+                    f"{best_file['content']}\n"
+                    f"```\n\n"
+                    f"### Code Analysis & Functionality\n"
+                    f"- **Module File**: `{best_file['file_path']}`\n"
+                    f"- **Exposed Symbol**: `{best_file['symbol']}`\n\n"
+                    f"This module manages operations associated with your query. The implementation exposes "
+                    f"the key entrypoints (like `{best_file['symbol']}`) that handle requests, coordinate executions, "
+                    f"and structure outputs. This structure supports decoupling and modular extension."
+                )
+            else:
+                matches_text = ""
+                for f in context_files[:3]:
+                    snippet = f["content"][:300].strip() + "..." if len(f["content"]) > 300 else f["content"].strip()
+                    matches_text += f"- **File**: `{f['file_path']}` (Symbol: `{f['symbol']}`)\n```python\n{snippet}\n```\n"
                 
-            answer_text = (
-                f"**[Production LLM Simulation Mode - Provider: {selected_provider.upper()}, Model: {selected_model}]**\n\n"
-                f"Below is a preview of the closest matching code files and symbols retrieved from the workspace vector index:\n\n"
-                f"{matches_text}"
-            )
+                if not matches_text and file_symbols_map:
+                    matches_text = "I found the following files in the repository:\n"
+                    for item in file_symbols_map[:15]:
+                        f = item["file_path"]
+                        syms = item["symbols"]
+                        if syms:
+                            matches_text += f"- `{f}` (Symbols: `{syms}`)\n"
+                        else:
+                            matches_text += f"- `{f}`\n"
+                    
+                answer_text = (
+                    f"**[Production LLM Simulation Mode - Provider: {selected_provider.upper()}, Model: {selected_model}]**\n\n"
+                    f"Below is a preview of the closest matching code files and symbols retrieved from the workspace vector index:\n\n"
+                    f"{matches_text}"
+                )
             
         output_tokens = cls.get_token_count_heuristic(answer_text)
         cost = cls.get_cost(selected_provider, selected_model, input_tokens, output_tokens)
