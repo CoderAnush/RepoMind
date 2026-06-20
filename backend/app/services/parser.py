@@ -3,6 +3,12 @@ import ast
 import re
 from typing import List, Dict, Any, Optional
 
+
+def sanitize_content(text: str) -> str:
+    """Remove NUL bytes and other PostgreSQL-incompatible control characters from string content."""
+    # Strip NUL bytes (0x00) which PostgreSQL cannot store in text columns
+    return text.replace('\x00', '')
+
 class PythonASTParser(ast.NodeVisitor):
     def __init__(self, file_content: str, file_path: str):
         self.file_content = file_content
@@ -206,11 +212,23 @@ class CodeParser:
         _, ext = os.path.splitext(file_path)
         ext = ext.lower()
         
+        # Additional binary extension guard (belt-and-suspenders alongside agent_service)
+        skip_exts = {
+            '.pkl', '.pickle', '.npy', '.npz', '.h5', '.hdf5', '.joblib',
+            '.model', '.weights', '.pt', '.pth', '.onnx', '.pb',
+            '.parquet', '.feather', '.arrow', '.proto'
+        }
+        if ext in skip_exts:
+            return []
+
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                content = f.read()
-        except Exception as e:
+                raw = f.read()
+        except Exception:
             return []
+
+        # Sanitize NUL bytes before any processing — PostgreSQL rejects \x00 in text columns
+        content = sanitize_content(raw)
 
         if not content.strip():
             return []

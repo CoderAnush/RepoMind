@@ -61,11 +61,15 @@ class AgentService:
             
             # File extensions to ignore (binary and other heavy non-code formats)
             binary_extensions = {
-                '.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip', '.tar', '.gz', 
-                '.7z', '.exe', '.dll', '.so', '.dylib', '.pyc', '.pyd', '.class', '.jar', 
-                '.war', '.db', '.sqlite', '.sqlite3', '.mp3', '.mp4', '.avi', '.mov', 
-                '.ttf', '.woff', '.woff2', '.eot', '.svg', '.bin', '.dat', '.xlsx', 
-                '.docx', '.pptx', '.csv', '.parquet', '.lib', '.a', '.obj', '.o'
+                '.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip', '.tar', '.gz',
+                '.7z', '.exe', '.dll', '.so', '.dylib', '.pyc', '.pyd', '.class', '.jar',
+                '.war', '.db', '.sqlite', '.sqlite3', '.mp3', '.mp4', '.avi', '.mov',
+                '.ttf', '.woff', '.woff2', '.eot', '.svg', '.bin', '.dat', '.xlsx',
+                '.docx', '.pptx', '.csv', '.parquet', '.lib', '.a', '.obj', '.o',
+                # ML model / data serialization formats (contain NUL bytes)
+                '.pkl', '.pickle', '.npy', '.npz', '.h5', '.hdf5', '.joblib',
+                '.model', '.weights', '.pt', '.pth', '.onnx', '.pb',
+                '.feather', '.arrow', '.proto', '.safetensors',
             }
             
             ignore_dirs = {
@@ -103,17 +107,26 @@ class AgentService:
                         file_chunks = []
                     
                     for chunk in file_chunks:
+                        # Sanitize NUL bytes (\x00) — PostgreSQL rejects them in text columns
+                        # This occurs with repos containing pickle files or binary-embedded notebooks
+                        clean_content = chunk["content"].replace('\x00', '') if chunk.get("content") else ""
+                        clean_symbol = (chunk.get("symbol_name") or "").replace('\x00', '') or None
+                        clean_path = (chunk.get("file_path") or "").replace('\x00', '')
+
+                        if not clean_content.strip():
+                            continue  # Skip chunks that become empty after NUL removal
+
                         db_chunk = CodeChunk(
                             repository_id=repository_id,
-                            file_path=chunk["file_path"],
-                            symbol_name=chunk.get("symbol_name"),
+                            file_path=clean_path,
+                            symbol_name=clean_symbol,
                             chunk_type=chunk["chunk_type"],
-                            content=chunk["content"],
+                            content=clean_content,
                             language=chunk.get("language"),
                             dependencies=chunk.get("dependencies")
                         )
                         batch_db_chunks.append(db_chunk)
-                        batch_chunks.append(chunk)
+                        batch_chunks.append({**chunk, "content": clean_content})
                         
                         if chunk.get("symbol_name") and len(symbol_metadata_list) < 1000:
                             symbol_metadata_list.append({
