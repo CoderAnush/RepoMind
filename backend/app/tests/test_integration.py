@@ -278,3 +278,88 @@ def test_architecture_visualization_workflow(db):
     assert "external" in node_types
 
 
+def test_qdrant_repository_filter_index():
+    from qdrant_client.models import PayloadSchemaType, Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
+    from app.services.vector_db import VectorDBService
+    import uuid
+
+    # Initialize VectorDBService to get a Qdrant client
+    vector_db = VectorDBService()
+    client = vector_db.client
+
+    # Define a temporary unique collection name
+    temp_col = f"repomind_test_col_{uuid.uuid4().hex[:8]}"
+
+    try:
+        # 1. Create a temporary collection
+        client.create_collection(
+            collection_name=temp_col,
+            vectors_config=VectorParams(
+                size=vector_db.vector_dim,
+                distance=Distance.COSINE
+            )
+        )
+
+        # 2. Create repository_id payload index (keyword type)
+        client.create_payload_index(
+            collection_name=temp_col,
+            field_name="repository_id",
+            field_schema=PayloadSchemaType.KEYWORD
+        )
+
+        # Verify index was created
+        col_info = client.get_collection(collection_name=temp_col)
+        is_local = "Local" in type(client._client).__name__
+        if not is_local:
+            assert "repository_id" in col_info.payload_schema
+
+        # 3. Insert test vectors with repository_id payload
+        test_repo_id = str(uuid.uuid4())
+        other_repo_id = str(uuid.uuid4())
+        point_id_1 = str(uuid.uuid4())
+        point_id_2 = str(uuid.uuid4())
+
+        client.upsert(
+            collection_name=temp_col,
+            points=[
+                PointStruct(
+                    id=point_id_1,
+                    vector=[0.1] * vector_db.vector_dim,
+                    payload={"repository_id": test_repo_id, "text": "target content"}
+                ),
+                PointStruct(
+                    id=point_id_2,
+                    vector=[0.1] * vector_db.vector_dim,
+                    payload={"repository_id": other_repo_id, "text": "other content"}
+                ),
+            ]
+        )
+
+        # 4. Perform filtered search by repository_id
+        search_result = client.query_points(
+            collection_name=temp_col,
+            query=[0.1] * vector_db.vector_dim,
+            query_filter=Filter(
+                must=[
+                    FieldCondition(
+                        key="repository_id",
+                        match=MatchValue(value=test_repo_id)
+                    )
+                ]
+            ),
+            limit=2
+        )
+
+        # 5. Verify search succeeds and only returns the correct point
+        assert len(search_result.points) == 1
+        assert search_result.points[0].id == point_id_1
+        assert search_result.points[0].payload["repository_id"] == test_repo_id
+
+    finally:
+        # Clean up temporary collection
+        try:
+            client.delete_collection(collection_name=temp_col)
+        except Exception:
+            pass
+
+

@@ -100,10 +100,12 @@ class VectorDBService:
             VectorDBService._client = _build_qdrant_client()
 
         self.client = VectorDBService._client
+        logger.info("[Qdrant] Connected")
 
         # Initialize production collections
         self._init_collection(settings.QDRANT_COLLECTION_CODE)
         self._init_collection(settings.QDRANT_COLLECTION_DOCS)
+        self._init_payload_indexes()
 
     def _init_collection(self, collection_name: str) -> None:
         """Creates a Qdrant collection if it does not already exist."""
@@ -120,11 +122,30 @@ class VectorDBService:
                         distance=qmodels.Distance.COSINE
                     )
                 )
-                logger.info(f"[Qdrant] Collection '{collection_name}' created successfully.")
-            else:
-                logger.info(f"[Qdrant] Collection '{collection_name}' already exists.")
+            logger.info(f"[Qdrant] Collection {collection_name} exists")
         except Exception as e:
             logger.error(f"[Qdrant] Error checking/creating collection '{collection_name}': {e}")
+
+    def _init_payload_indexes(self) -> None:
+        """Idempotently creates the payload index on repository_id for both collections."""
+        from qdrant_client.models import PayloadSchemaType
+        all_ok = True
+        for col in [settings.QDRANT_COLLECTION_CODE, settings.QDRANT_COLLECTION_DOCS]:
+            try:
+                collection_info = self.client.get_collection(collection_name=col)
+                payload_schema = collection_info.payload_schema or {}
+                if "repository_id" not in payload_schema:
+                    logger.info(f"[Qdrant] Creating payload index for 'repository_id' on collection '{col}'")
+                    self.client.create_payload_index(
+                        collection_name=col,
+                        field_name="repository_id",
+                        field_schema=PayloadSchemaType.KEYWORD
+                    )
+            except Exception as e:
+                logger.error(f"[Qdrant] Error creating payload index for '{col}': {e}", exc_info=True)
+                all_ok = False
+        if all_ok:
+            logger.info("[Qdrant] Payload index repository_id verified")
 
     def get_client(self) -> QdrantClient:
         """Expose the underlying QdrantClient (used by health router)."""
