@@ -32,6 +32,19 @@ class RepoAnalysisAgent:
             except Exception:
                 pass
 
+        # Detect README content for rich summarization
+        readme_content = ""
+        readme_candidates = ["README.md", "readme.md", "README", "readme", "README.TXT", "readme.txt"]
+        for cand in readme_candidates:
+            full = os.path.join(clone_path, cand)
+            if os.path.exists(full):
+                try:
+                    with open(full, "r", encoding="utf-8", errors="ignore") as f:
+                        readme_content = "".join(f.readlines()[:150])
+                except Exception:
+                    pass
+                break
+
         # 3. Call LLM to summarize tech stack if key is present
         if self.llm:
             try:
@@ -39,6 +52,7 @@ class RepoAnalysisAgent:
                     "You are a Senior Project Architect analyzing a new code repository.\n"
                     "Here is the directory file tree: {file_tree}\n"
                     "Here is the configuration details: {config_details}\n"
+                    "Here is the first part of the repository README:\n{readme_text}\n\n"
                     "Provide a detailed structured overview summarizing:\n"
                     "1. Primary Languages and Frameworks\n"
                     "2. Database & Storage layers\n"
@@ -48,14 +62,15 @@ class RepoAnalysisAgent:
                 chain = prompt | self.llm
                 response = chain.invoke({
                     "file_tree": str(metadata.get("file_list", [])),
-                    "config_details": str(config_summaries)
+                    "config_details": str(config_summaries),
+                    "readme_text": readme_content
                 })
                 summary = response.content
             except Exception as e:
                 logger.error(f"LLM call failed in RepoAnalysisAgent: {str(e)}")
-                summary = self._fallback_summary(metadata, config_files)
+                summary = self._fallback_summary(metadata, config_files, clone_path)
         else:
-            summary = self._fallback_summary(metadata, config_files)
+            summary = self._fallback_summary(metadata, config_files, clone_path)
 
         return {
             "summary": summary,
@@ -90,15 +105,66 @@ class RepoAnalysisAgent:
                 frameworks.append("Rust Cargo")
         return frameworks
 
-    def _fallback_summary(self, metadata: Dict[str, Any], config_files: Dict[str, str]) -> str:
+    def _fallback_summary(self, metadata: Dict[str, Any], config_files: Dict[str, str], clone_path: str = "") -> str:
+        project_desc = ""
+        if clone_path:
+            # Look for README file
+            readme_candidates = ["README.md", "readme.md", "README", "readme", "README.TXT", "readme.txt"]
+            readme_path = None
+            for cand in readme_candidates:
+                full = os.path.join(clone_path, cand)
+                if os.path.exists(full):
+                    readme_path = full
+                    break
+            
+            if readme_path:
+                try:
+                    with open(readme_path, "r", encoding="utf-8", errors="ignore") as f:
+                        lines = f.readlines()
+                    
+                    # Extract the first few sections/paragraphs that describe the project
+                    desc_lines = []
+                    heading_count = 0
+                    for line in lines:
+                        stripped = line.strip()
+                        if not stripped:
+                            if desc_lines and desc_lines[-1] != "\n":
+                                desc_lines.append("\n")
+                            continue
+                        
+                        # Stop if we hit too many sections or a setup/license section
+                        if stripped.startswith("#"):
+                            lower_strip = stripped.lower()
+                            if any(x in lower_strip for x in ["license", "contributing", "installation", "setup", "usage"]):
+                                break
+                            
+                            # Limit to first 3 headers
+                            heading_count += 1
+                            if heading_count > 3:
+                                break
+                        
+                        desc_lines.append(line)
+                    
+                    if desc_lines:
+                        project_desc = "".join(desc_lines).strip()
+                except Exception as e:
+                    logger.warning(f"Error reading README in fallback summary: {e}")
+        
+        if not project_desc:
+            # Fallback if no README
+            project_desc = (
+                "This repository is a software codebase comprising execution modules and configurations. "
+                "The system provides services designed to process codebase structures and automate core logic workflows."
+            )
+
         langs = ", ".join([f"{k} ({v}%)" for k, v in metadata.get("languages_loc_percentage", {}).items()])
         summary = (
+            f"### Project Description\n"
+            f"{project_desc}\n\n"
             f"### Technical Stack Summary\n"
             f"- **Languages Detected**: {langs if langs else 'Unknown'}\n"
             f"- **Total Files**: {metadata.get('total_files', 0)}\n"
             f"- **Lines of Code**: {metadata.get('total_loc', 0)}\n"
-            f"- **Configuration Files Found**: {', '.join(config_files.keys()) if config_files else 'None'}\n\n"
-            f"This codebase is structured with the following key components. "
-            f"It primarily utilizes the files listed in the directory layout to deliver its functionality."
+            f"- **Configuration Files Found**: {', '.join(config_files.keys()) if config_files else 'None'}"
         )
         return summary

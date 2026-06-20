@@ -172,18 +172,116 @@ class LLMProviderService:
         latency = time.time() - start_time
         input_tokens = cls.get_token_count_heuristic(system_prompt + user_prompt)
         
-        # Build a response summarizing context
-        answer_text = (
-            f"**[Production LLM Simulation Mode - Provider: {selected_provider.upper()}, Model: {selected_model}]**\n\n"
-            f"Here is a mockup of how a real LLM would reply using Qdrant vector retrieval context.\n\n"
-            f"**Retrieved Context Summary**:\n"
-            f"We analyzed the query '{user_prompt}' and retrieved files that contained symbols like classes, methods, or setup specifications.\n\n"
-            f"To build this response on the backend, RepoMind computed inputs using the standard pricing matrices:\n"
-            f"- input tokens: {input_tokens}\n"
-            f"- output tokens: 180\n"
-            f"- calculated transaction cost: ${cls.get_cost(selected_provider, selected_model, input_tokens, 180):.6f} USD"
+        # Extract files, symbols, and contents from context
+        import re
+        context_files = []
+        file_blocks = re.findall(
+            r"--- File:\s*(.*?)\s*\(Symbol:\s*(.*?)\)\s*---\n(.*?)(?=\n--- File:|$)", 
+            system_prompt, 
+            re.DOTALL
         )
+        for fb in file_blocks:
+            context_files.append({
+                "file_path": fb[0].strip(),
+                "symbol": fb[1].strip(),
+                "content": fb[2].strip()
+            })
+            
+        query_lower = user_prompt.lower()
+        explanation = ""
         
+        # Build intelligent contextual responses
+        if any(x in query_lower for x in ["explain the full project", "what does this repository do", "what is this repository", "explain the project"]):
+            # Main README or codebase overview
+            readme_chunk = ""
+            for f in context_files:
+                if "readme" in f["file_path"].lower():
+                    readme_chunk = f["content"]
+                    break
+            
+            if readme_chunk:
+                readme_lines = [l.strip() for l in readme_chunk.split("\n") if l.strip()]
+                description = "\n".join(readme_lines[:15])
+                explanation = f"### Project Purpose & Overview\n{description}\n\n"
+            else:
+                detected_names = [f["file_path"] for f in context_files]
+                explanation = (
+                    f"### Project Purpose & Overview\n"
+                    f"This repository contains structured execution modules and configurations. "
+                    f"Based on the files detected ({', '.join(detected_names[:3])}), the codebase is designed to orchestrate "
+                    f"model pipelines, execute helper mappings, and manage application configurations.\n\n"
+                )
+            
+            # Code module details
+            explanation += "### Main Code Modules\n"
+            for f in context_files[:5]:
+                desc = "Contains setup, contributing guidelines, and onboarding documentation." if "readme" in f["file_path"].lower() else "Implements logic algorithms and functions."
+                if "inference" in f["file_path"].lower():
+                    desc = "Loads machine learning/deep learning model weights (such as YOLO or CNN models) to perform detection, inference, and classification."
+                elif "mapping" in f["file_path"].lower():
+                    desc = "Defines category and class mappings to convert model indices to human-readable labels."
+                elif "utils" in f["file_path"].lower():
+                    desc = "Implements utility functions and data manipulation helpers."
+                explanation += f"- **`{f['file_path']}`** ({f['symbol']}): {desc}\n"
+                
+            answer_text = (
+                f"**[Production LLM Simulation Mode - Provider: {selected_provider.upper()}, Model: {selected_model}]**\n\n"
+                f"{explanation}"
+            )
+            
+        elif "architecture" in query_lower:
+            detected_names = [f["file_path"] for f in context_files]
+            arch_summary = (
+                "### Repository Architecture Overview\n"
+                "The repository uses a modular design layout, dividing logic between model inference, "
+                "data mappings, helper utilities, and configuration blocks. "
+                "The main building blocks are:\n\n"
+            )
+            for f in context_files[:5]:
+                if f["symbol"] and f["symbol"] != "Module":
+                    arch_summary += f"- **{f['symbol']}** (in `{f['file_path']}`): Component implementing core execution features.\n"
+                else:
+                    arch_summary += f"- **`{f['file_path']}`**: Module containing runtime scripts.\n"
+            arch_summary += "\nThis structure decouples data parsing and model execution, facilitating testing and expansion."
+            
+            answer_text = (
+                f"**[Production LLM Simulation Mode - Provider: {selected_provider.upper()}, Model: {selected_model}]**\n\n"
+                f"{arch_summary}"
+            )
+            
+        elif any(x in query_lower for x in ["auth", "login", "jwt", "token", "user", "security"]):
+            auth_files = [f for f in context_files if any(x in f["file_path"].lower() for x in ["auth", "login", "jwt", "token", "user", "security"])]
+            if auth_files:
+                auth_summary = (
+                    "### Authentication & Security Handler Modules\n"
+                    "The following files are responsible for managing authorization, logins, token encryption, and roles:\n\n"
+                )
+                for f in auth_files[:3]:
+                    auth_summary += f"- **`{f['file_path']}`**: Manages authentication sessions and validations.\n"
+            else:
+                auth_summary = (
+                    "### Authentication & Security Handler Modules\n"
+                    "No explicit authentication files (such as `auth.py`, `security.py`, or `jwt.py`) were detected "
+                    "in the retrieved context blocks. This indicates the application might be a library/utility "
+                    "run locally or via API endpoints without user auth requirements."
+                )
+            answer_text = (
+                f"**[Production LLM Simulation Mode - Provider: {selected_provider.upper()}, Model: {selected_model}]**\n\n"
+                f"{auth_summary}"
+            )
+            
+        else:
+            matches_text = ""
+            for f in context_files[:3]:
+                snippet = f["content"][:300].strip() + "..." if len(f["content"]) > 300 else f["content"].strip()
+                matches_text += f"- **File**: `{f['file_path']}` (Symbol: `{f['symbol']}`)\n```python\n{snippet}\n```\n"
+                
+            answer_text = (
+                f"**[Production LLM Simulation Mode - Provider: {selected_provider.upper()}, Model: {selected_model}]**\n\n"
+                f"Below is a preview of the closest matching code files and symbols retrieved from the workspace vector index:\n\n"
+                f"{matches_text}"
+            )
+            
         output_tokens = cls.get_token_count_heuristic(answer_text)
         cost = cls.get_cost(selected_provider, selected_model, input_tokens, output_tokens)
         
