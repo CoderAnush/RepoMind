@@ -5,7 +5,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://repomind-api-z6x5.onre
 export const apiClient = axios.create({
   baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 30000,
+  timeout: 90000, // Increased to 90s to accommodate Render free-tier cold-starts
 });
 
 // Attach token from localStorage on every request
