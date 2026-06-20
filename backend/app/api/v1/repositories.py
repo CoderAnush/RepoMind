@@ -106,6 +106,68 @@ def get_repository(
     return repo
 
 
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_repository(
+    id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Deletes a repository, cascading to clear all database entities and deleting associated Qdrant vectors.
+    """
+    repo = db.query(Repository).filter(
+        Repository.id == id,
+        Repository.owner_id == current_user.id
+    ).first()
+    
+    if not repo:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Repository not found."
+        )
+        
+    # Delete from Qdrant
+    try:
+        from app.services.vector_db import VectorDBService
+        from qdrant_client.models import Filter, FieldCondition, MatchValue
+        from app.core.config import settings
+        
+        vector_db = VectorDBService()
+        repo_filter = Filter(
+            must=[
+                FieldCondition(
+                    key="repository_id",
+                    match=MatchValue(value=id)
+                )
+            ]
+        )
+        
+        try:
+            vector_db.client.delete(
+                collection_name=settings.QDRANT_COLLECTION_CODE,
+                filter=repo_filter
+            )
+        except Exception:
+            pass
+            
+        try:
+            vector_db.client.delete(
+                collection_name=settings.QDRANT_COLLECTION_DOCS,
+                filter=repo_filter
+            )
+        except Exception:
+            pass
+    except Exception as e:
+        from app.core.logging import logger
+        logger.warning(f"Error clean-up vector DB: {e}")
+        
+    # Delete database row (cascades automatically due to cascade="all, delete-orphan")
+    db.delete(repo)
+    db.commit()
+    
+    return status.HTTP_204_NO_CONTENT
+
+
 @router.get("/{id}/jobs", response_model=List[JobResponse])
 def get_repository_jobs(
     id: str,
