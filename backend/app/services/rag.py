@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.logging import logger
 from app.models.chat import ChatHistory
+from app.models.repository import Repository
+from app.models.document import GeneratedDocumentation
 from app.services.vector_db import VectorDBService
 from app.services.llm_provider import LLMProviderService
 
@@ -50,9 +52,46 @@ class RAGService:
 
         context_string = "\n".join(context_blocks)
         
+        # 2b. Retrieve metadata & README/Overview doc
+        repo = db.query(Repository).filter(Repository.id == repository_id).first()
+        repo_name = repo.name if repo else "Unknown"
+        metadata = repo.metadata_info or {} if repo else {}
+        total_files = metadata.get("total_files", 0)
+        total_loc = metadata.get("total_loc", 0)
+        languages = metadata.get("languages", {})
+        file_list = metadata.get("file_list", [])
+
+        readme_content = ""
+        try:
+            readme_doc = db.query(GeneratedDocumentation).filter(
+                GeneratedDocumentation.repository_id == repository_id,
+                GeneratedDocumentation.doc_type == "README"
+            ).first()
+            if readme_doc:
+                readme_content = readme_doc.content
+            else:
+                overview_doc = db.query(GeneratedDocumentation).filter(
+                    GeneratedDocumentation.repository_id == repository_id,
+                    GeneratedDocumentation.doc_type == "PROJECT_OVERVIEW"
+                ).first()
+                if overview_doc:
+                    readme_content = overview_doc.content
+        except Exception as e:
+            logger.error(f"[RAG] Failed to query GeneratedDocumentation table: {e}")
+
         # 3. Request LLM response using unified LLMProviderService
         system_prompt = (
-            "You are an expert Software Engineer chatbot named RepoMind. "
+            "You are an expert Software Engineer chatbot named RepoMind.\n"
+            f"Repository Name: {repo_name}\n"
+            f"Total Files: {total_files}\n"
+            f"Total LOC: {total_loc}\n"
+            f"Languages: {str(languages)}\n"
+            f"File List Sample: {str(file_list[:15])}\n\n"
+        )
+        if readme_content:
+            system_prompt += f"REPOSITORY README / OVERVIEW:\n{readme_content}\n\n"
+
+        system_prompt += (
             "Explain components and answer questions about this codebase using only the provided context blocks. "
             "Be precise, reference lines/files directly, and avoid guessing.\n\n"
             f"CONTEXT BLOCKS:\n{context_string}"

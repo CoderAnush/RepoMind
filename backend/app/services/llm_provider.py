@@ -187,42 +187,83 @@ class LLMProviderService:
                 "content": fb[2].strip()
             })
             
+        # Extract repository info from system_prompt
+        repo_name_match = re.search(r"Repository Name:\s*(.*?)\n", system_prompt)
+        repo_name = repo_name_match.group(1).strip() if repo_name_match else "this codebase"
+
+        total_files_match = re.search(r"Total Files:\s*(\d+)", system_prompt)
+        total_files = total_files_match.group(1).strip() if total_files_match else "0"
+
+        total_loc_match = re.search(r"Total LOC:\s*(\d+)", system_prompt)
+        total_loc = total_loc_match.group(1).strip() if total_loc_match else "0"
+
+        languages_match = re.search(r"Languages:\s*(.*?)\n", system_prompt)
+        languages_str = languages_match.group(1).strip() if languages_match else "{}"
+
+        files_match = re.search(r"File List Sample:\s*\[(.*?)\]", system_prompt)
+        files_sample_str = files_match.group(1).strip() if files_match else ""
+        files_sample = [f.strip().strip("'\"") for f in files_sample_str.split(",") if f.strip()]
+
+        detected_names = [f["file_path"] for f in context_files]
+        if not detected_names:
+            detected_names = files_sample
+
+        readme_chunk = ""
+        readme_match = re.search(
+            r"REPOSITORY README / OVERVIEW:\n(.*?)(?=\n\n(?:Explain components|CONTEXT BLOCKS:|$))", 
+            system_prompt, 
+            re.DOTALL
+        )
+        if readme_match:
+            readme_chunk = readme_match.group(1).strip()
+
         query_lower = user_prompt.lower()
         explanation = ""
         
         # Build intelligent contextual responses
         if any(x in query_lower for x in ["explain the full project", "what does this repository do", "what is this repository", "explain the project"]):
-            # Main README or codebase overview
-            readme_chunk = ""
-            for f in context_files:
-                if "readme" in f["file_path"].lower():
-                    readme_chunk = f["content"]
-                    break
-            
             if readme_chunk:
                 readme_lines = [l.strip() for l in readme_chunk.split("\n") if l.strip()]
-                description = "\n".join(readme_lines[:15])
+                # Extract first 15 clean lines (avoid large headers)
+                desc_lines = []
+                for line in readme_lines:
+                    if line.startswith("# README") or line.startswith("Welcome to the repository") or "documentation is automatically generated" in line:
+                        continue
+                    desc_lines.append(line)
+                    if len(desc_lines) >= 15:
+                        break
+                description = "\n".join(desc_lines)
                 explanation = f"### Project Purpose & Overview\n{description}\n\n"
             else:
-                detected_names = [f["file_path"] for f in context_files]
                 explanation = (
                     f"### Project Purpose & Overview\n"
-                    f"This repository contains structured execution modules and configurations. "
-                    f"Based on the files detected ({', '.join(detected_names[:3])}), the codebase is designed to orchestrate "
-                    f"model pipelines, execute helper mappings, and manage application configurations.\n\n"
+                    f"The `{repo_name}` repository is a software codebase comprising execution modules and configurations. "
+                    f"Based on the files detected ({', '.join(detected_names[:3])}), the codebase is designed to manage "
+                    f"core application logic, utilities, and integrations.\n\n"
                 )
             
+            # Technical Stack details
+            explanation += "### Repository Technical Details\n"
+            explanation += f"- **Repository Name**: `{repo_name}`\n"
+            explanation += f"- **Total Files**: {total_files}\n"
+            explanation += f"- **Lines of Code (LOC)**: {total_loc}\n"
+            explanation += f"- **Languages Breakdown**: `{languages_str}`\n\n"
+
             # Code module details
             explanation += "### Main Code Modules\n"
-            for f in context_files[:5]:
-                desc = "Contains setup, contributing guidelines, and onboarding documentation." if "readme" in f["file_path"].lower() else "Implements logic algorithms and functions."
-                if "inference" in f["file_path"].lower():
+            for f in detected_names[:5]:
+                desc = "Contains setup, contributing guidelines, and onboarding documentation." if "readme" in f.lower() else "Implements core execution logic and functions."
+                if "inference" in f.lower():
                     desc = "Loads machine learning/deep learning model weights (such as YOLO or CNN models) to perform detection, inference, and classification."
-                elif "mapping" in f["file_path"].lower():
+                elif "mapping" in f.lower():
                     desc = "Defines category and class mappings to convert model indices to human-readable labels."
-                elif "utils" in f["file_path"].lower():
+                elif "utils" in f.lower():
                     desc = "Implements utility functions and data manipulation helpers."
-                explanation += f"- **`{f['file_path']}`** ({f['symbol']}): {desc}\n"
+                elif "core" in f.lower():
+                    desc = "Defines core runtime objects, base classes, and execution parameters."
+                elif "decorators" in f.lower():
+                    desc = "Implements custom decorators for runtime behavior extension."
+                explanation += f"- **`{f}`**: {desc}\n"
                 
             answer_text = (
                 f"**[Production LLM Simulation Mode - Provider: {selected_provider.upper()}, Model: {selected_model}]**\n\n"
@@ -230,19 +271,16 @@ class LLMProviderService:
             )
             
         elif "architecture" in query_lower:
-            detected_names = [f["file_path"] for f in context_files]
             arch_summary = (
-                "### Repository Architecture Overview\n"
-                "The repository uses a modular design layout, dividing logic between model inference, "
-                "data mappings, helper utilities, and configuration blocks. "
-                "The main building blocks are:\n\n"
+                f"### Repository Architecture Overview\n"
+                f"The repository `{repo_name}` uses a modular design layout, dividing logic between core functions, "
+                f"helper utilities, configuration blocks, and testing scripts. "
+                f"The codebase contains {total_files} files with a total of {total_loc} lines of code. "
+                f"The main building blocks are:\n\n"
             )
-            for f in context_files[:5]:
-                if f["symbol"] and f["symbol"] != "Module":
-                    arch_summary += f"- **{f['symbol']}** (in `{f['file_path']}`): Component implementing core execution features.\n"
-                else:
-                    arch_summary += f"- **`{f['file_path']}`**: Module containing runtime scripts.\n"
-            arch_summary += "\nThis structure decouples data parsing and model execution, facilitating testing and expansion."
+            for f in detected_names[:5]:
+                arch_summary += f"- **`{f}`**: Module containing runtime scripts and components.\n"
+            arch_summary += f"\nThis structure decouples data parsing and application execution, facilitating testing and expansion."
             
             answer_text = (
                 f"**[Production LLM Simulation Mode - Provider: {selected_provider.upper()}, Model: {selected_model}]**\n\n"
@@ -250,14 +288,14 @@ class LLMProviderService:
             )
             
         elif any(x in query_lower for x in ["auth", "login", "jwt", "token", "user", "security"]):
-            auth_files = [f for f in context_files if any(x in f["file_path"].lower() for x in ["auth", "login", "jwt", "token", "user", "security"])]
+            auth_files = [f for f in detected_names if any(x in f.lower() for x in ["auth", "login", "jwt", "token", "user", "security"])]
             if auth_files:
                 auth_summary = (
                     "### Authentication & Security Handler Modules\n"
                     "The following files are responsible for managing authorization, logins, token encryption, and roles:\n\n"
                 )
                 for f in auth_files[:3]:
-                    auth_summary += f"- **`{f['file_path']}`**: Manages authentication sessions and validations.\n"
+                    auth_summary += f"- **`{f}`**: Manages authentication sessions and validations.\n"
             else:
                 auth_summary = (
                     "### Authentication & Security Handler Modules\n"
@@ -275,6 +313,11 @@ class LLMProviderService:
             for f in context_files[:3]:
                 snippet = f["content"][:300].strip() + "..." if len(f["content"]) > 300 else f["content"].strip()
                 matches_text += f"- **File**: `{f['file_path']}` (Symbol: `{f['symbol']}`)\n```python\n{snippet}\n```\n"
+            
+            if not matches_text and detected_names:
+                matches_text = "I found the following files in the repository:\n"
+                for f in detected_names[:5]:
+                    matches_text += f"- `{f}`\n"
                 
             answer_text = (
                 f"**[Production LLM Simulation Mode - Provider: {selected_provider.upper()}, Model: {selected_model}]**\n\n"
