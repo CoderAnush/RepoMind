@@ -40,3 +40,16 @@ Thumbs.db
 *.tfstate
 *.tfstate.backup
 .terraform.lock.hcl
+
+# Local database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary / Scratch scripts
+patch*.py
+test_*.py
+!backend/app/tests/test_*.py
+copy_screenshots.py
+console_report.md
+

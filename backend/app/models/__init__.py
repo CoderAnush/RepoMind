@@ -5,7 +5,7 @@ from app.models.repository import Repository
 from app.models.job import ProcessingJob
 from app.models.document import CodeChunk, GeneratedDocumentation
 from app.models.chat import ChatHistory
-from app.models.analysis import Diagram, Report
+from app.models.analysis import Diagram, Report, CodeReview, ArchitectureGraph, ReviewFinding
 
 __all__ = [
     "Base",
@@ -16,5 +16,8 @@ __all__ = [
     "GeneratedDocumentation",
     "ChatHistory",
     "Diagram",
-    "Report"
+    "Report",
+    "CodeReview",
+    "ArchitectureGraph",
+    "ReviewFinding"
 ]

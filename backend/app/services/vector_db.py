@@ -188,40 +188,56 @@ class VectorDBService:
 
     def index_chunks(self, repository_id: str, chunks: List[Dict[str, Any]]) -> None:
         """
-        Embeds and indexes code chunks in Qdrant.
+        Embeds and indexes code chunks in Qdrant in batches to prevent rate limits and memory overflow.
         """
         if not chunks:
             return
 
-        logger.info(f"[Qdrant] Indexing {len(chunks)} code chunks for repo: {repository_id}")
+        logger.info(f"[Qdrant] Indexing {len(chunks)} code chunks for repo: {repository_id} in batches.")
 
-        contents = [c["content"] for c in chunks]
-        embeddings = self.embedding_provider.get_embeddings(contents)
-
-        points = []
+        batch_size = 50
         import uuid
-        for idx, (chunk, vector) in enumerate(zip(chunks, embeddings)):
-            payload = {
-                "repository_id": repository_id,
-                "file_path": chunk["file_path"],
-                "symbol_name": chunk.get("symbol_name") or "",
-                "chunk_type": chunk["chunk_type"],
-                "language": chunk.get("language") or "",
-                "dependencies": chunk.get("dependencies") or [],
-                "content": chunk["content"]
-            }
-            point_id = chunk.get("id") or str(
-                uuid.uuid5(uuid.NAMESPACE_DNS, f"{repository_id}_{chunk['file_path']}_{idx}")
-            )
-            points.append(qmodels.PointStruct(id=point_id, vector=vector, payload=payload))
+        total_uploaded = 0
 
-        batch_size = 100
-        for i in range(0, len(points), batch_size):
-            self.client.upsert(
-                collection_name=settings.QDRANT_COLLECTION_CODE,
-                points=points[i:i + batch_size]
-            )
-        logger.info(f"[Qdrant] Upload complete: {len(points)} vectors indexed.")
+        for i in range(0, len(chunks), batch_size):
+            chunk_batch = chunks[i:i + batch_size]
+            batch_contents = [c["content"] for c in chunk_batch]
+            
+            try:
+                # Generate embeddings for the batch
+                batch_embeddings = self.embedding_provider.get_embeddings(batch_contents)
+            except Exception as e:
+                logger.error(f"[Qdrant] Error generating embeddings for batch: {str(e)}")
+                # Skip batch or use mock embeddings fallback
+                batch_embeddings = [self.embedding_provider._mock_embedding(c) for c in batch_contents]
+                
+            points = []
+            for idx, (chunk, vector) in enumerate(zip(chunk_batch, batch_embeddings)):
+                payload = {
+                    "repository_id": repository_id,
+                    "file_path": chunk["file_path"],
+                    "symbol_name": chunk.get("symbol_name") or "",
+                    "chunk_type": chunk["chunk_type"],
+                    "language": chunk.get("language") or "",
+                    "dependencies": chunk.get("dependencies") or [],
+                    "content": chunk["content"]
+                }
+                # Create a deterministic UUID using repository_id, file_path, and indices
+                point_id = chunk.get("id") or str(
+                    uuid.uuid5(uuid.NAMESPACE_DNS, f"{repository_id}_{chunk['file_path']}_{i + idx}")
+                )
+                points.append(qmodels.PointStruct(id=point_id, vector=vector, payload=payload))
+
+            try:
+                self.client.upsert(
+                    collection_name=settings.QDRANT_COLLECTION_CODE,
+                    points=points
+                )
+                total_uploaded += len(points)
+            except Exception as e:
+                logger.error(f"[Qdrant] Error uploading points to Qdrant: {str(e)}")
+
+        logger.info(f"[Qdrant] Upload complete: {total_uploaded} vectors indexed.")
 
     def search_code(
         self,

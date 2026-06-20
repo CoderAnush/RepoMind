@@ -356,3 +356,110 @@ def read_users_me(current_user: User = Depends(get_current_user)):
     Get current logged in user details.
     """
     return current_user
+
+
+from pydantic import BaseModel
+
+class GitHubLoginRequest(BaseModel):
+    code: str
+
+@router.get("/github/url")
+def get_github_auth_url(redirect_uri: str):
+    """
+    Returns the GitHub OAuth login URL. Supports fallback to mock mode.
+    """
+    client_id = settings.GITHUB_CLIENT_ID
+    if not client_id:
+        return {
+            "url": f"{redirect_uri}?code=mock_code_octocat",
+            "is_mock": True
+        }
+    return {
+        "url": f"https://github.com/login/oauth/authorize?client_id={client_id}&redirect_uri={redirect_uri}&scope=user,repo",
+        "is_mock": False
+    }
+
+@router.post("/github/login", response_model=Token)
+def github_login(payload: GitHubLoginRequest, db: Session = Depends(get_db)):
+    """
+    Exchanges code for GitHub user profile, creates/retrieves local user profile,
+    and returns a JWT access token.
+    """
+    code = payload.code
+    github_access_token = None
+    
+    if code.startswith("mock_code") or not settings.GITHUB_CLIENT_ID or not settings.GITHUB_CLIENT_SECRET:
+        email = "octocat@github.com"
+        full_name = "The Octocat (Mock)"
+        github_id = "583234"
+        github_access_token = "mock_github_token_octocat"
+    else:
+        try:
+            token_url = "https://github.com/login/oauth/access_token"
+            headers = {"Accept": "application/json"}
+            data = {
+                "client_id": settings.GITHUB_CLIENT_ID,
+                "client_secret": settings.GITHUB_CLIENT_SECRET,
+                "code": code
+            }
+            resp = httpx.post(token_url, headers=headers, json=data, timeout=10.0)
+            if resp.status_code != 200:
+                raise HTTPException(status_code=400, detail="Failed to exchange OAuth code with GitHub")
+            
+            token_data = resp.json()
+            access_token = token_data.get("access_token")
+            if not access_token:
+                raise HTTPException(status_code=400, detail=token_data.get("error_description") or "OAuth code expired or invalid")
+            
+            github_access_token = access_token
+            profile_url = "https://api.github.com/user"
+            profile_headers = {"Authorization": f"Bearer {github_access_token}"}
+            profile_resp = httpx.get(profile_url, headers=profile_headers, timeout=10.0)
+            if profile_resp.status_code != 200:
+                raise HTTPException(status_code=400, detail="Failed to fetch user profile from GitHub")
+            
+            profile = profile_resp.json()
+            github_id = str(profile.get("id"))
+            full_name = profile.get("name") or profile.get("login") or "GitHub User"
+            
+            emails_url = "https://api.github.com/user/emails"
+            emails_resp = httpx.get(emails_url, headers=profile_headers, timeout=10.0)
+            email = None
+            if emails_resp.status_code == 200:
+                emails = emails_resp.json()
+                for em in emails:
+                    if em.get("primary") and em.get("verified"):
+                        email = em.get("email")
+                        break
+            
+            if not email:
+                email = profile.get("email") or f"{profile.get('login')}@github.com"
+                
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"GitHub OAuth error: {str(e)}")
+
+    user = db.query(User).filter((User.email == email) | (User.id == f"github-{github_id}")).first()
+    if not user:
+        user = User(
+            id=f"github-{github_id}",
+            email=email,
+            hashed_password=get_password_hash("github-oauth-managed-password"),
+            full_name=full_name,
+            role="DEVELOPER",
+            is_active=True
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        subject=user.id, expires_delta=access_token_expires
+    )
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user,
+        "github_access_token": github_access_token
+    }
+

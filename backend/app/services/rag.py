@@ -25,8 +25,12 @@ class RAGService:
         """
         logger.info(f"Querying repository {repository_id} with query: '{message}'")
         
-        # 1. Search vector DB for matched code chunks
-        matched_chunks = self.vector_db.search_code(repository_id, message, limit=5)
+        # 1. Search vector DB for matched code chunks with exception handling
+        try:
+            matched_chunks = self.vector_db.search_code(repository_id, message, limit=5)
+        except Exception as e:
+            logger.error(f"[RAG] Failed to search code in Qdrant: {str(e)}", exc_info=True)
+            matched_chunks = []
         
         # 2. Build context text
         context_blocks = []
@@ -54,13 +58,19 @@ class RAGService:
             f"CONTEXT BLOCKS:\n{context_string}"
         )
         
-        llm_response = LLMProviderService.generate_response(
-            system_prompt=system_prompt,
-            user_prompt=message
-        )
-        
-        answer = llm_response["answer"]
-        if llm_response.get("fallback_mode") and references:
+        try:
+            llm_response = LLMProviderService.generate_response(
+                system_prompt=system_prompt,
+                user_prompt=message
+            )
+            answer = llm_response["answer"]
+            fallback_mode = llm_response.get("fallback_mode", False)
+        except Exception as e:
+            logger.error(f"[RAG] LLM generation failed: {str(e)}", exc_info=True)
+            fallback_mode = True
+            answer = self._fallback_answer(message, references)
+            
+        if fallback_mode and references:
             answer = (
                 f"{answer}\n\n"
                 f"**[Source Files Matched]**:\n"
@@ -73,25 +83,29 @@ class RAGService:
             )
 
         # 4. Save User Message & Assistant Answer to Database
-        db_user_msg = ChatHistory(
-            user_id=user_id,
-            repository_id=repository_id,
-            session_id=session_id,
-            role="user",
-            message=message
-        )
-        db_assistant_msg = ChatHistory(
-            user_id=user_id,
-            repository_id=repository_id,
-            session_id=session_id,
-            role="assistant",
-            message=answer,
-            references=references
-        )
-        
-        db.add(db_user_msg)
-        db.add(db_assistant_msg)
-        db.commit()
+        try:
+            db_user_msg = ChatHistory(
+                user_id=user_id,
+                repository_id=repository_id,
+                session_id=session_id,
+                role="user",
+                message=message
+            )
+            db_assistant_msg = ChatHistory(
+                user_id=user_id,
+                repository_id=repository_id,
+                session_id=session_id,
+                role="assistant",
+                message=answer,
+                references=references
+            )
+            
+            db.add(db_user_msg)
+            db.add(db_assistant_msg)
+            db.commit()
+        except Exception as e:
+            logger.error(f"[RAG] Failed to save chat history: {str(e)}", exc_info=True)
+            db.rollback()
         
         return {
             "answer": answer,

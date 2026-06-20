@@ -5,6 +5,9 @@ from git import Repo, GitCommandError
 from app.core.config import settings
 from app.core.logging import logger
 
+# Prevent git from prompting for credentials in non-interactive environment
+os.environ["GIT_TERMINAL_PROMPT"] = "0"
+
 class IngestionService:
     @staticmethod
     def get_clone_path(repository_id: str) -> str:
@@ -46,6 +49,8 @@ class IngestionService:
             if "master" in str(e) or "main" in str(e):
                 logger.warning(f"Failed to clone branch {branch}, attempting default branch clone...")
                 try:
+                    if os.path.exists(clone_path):
+                        shutil.rmtree(clone_path, ignore_errors=True)
                     Repo.clone_from(auth_url, clone_path, depth=1)
                     logger.info(f"Successfully cloned repository using default branch")
                     return clone_path
@@ -96,7 +101,17 @@ class IngestionService:
         # Ignore common directories
         ignore_dirs = {
             ".git", "node_modules", "venv", ".venv", "env", "dist", 
-            "build", "__pycache__", "target", "vendor", ".idea", ".vscode"
+            "build", "__pycache__", "target", "vendor", ".idea", ".vscode",
+            ".pytest_cache", ".mypy_cache", ".tox"
+        }
+
+        # Binary and non-source extensions to ignore completely
+        binary_extensions = {
+            '.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip', '.tar', '.gz', 
+            '.7z', '.exe', '.dll', '.so', '.dylib', '.pyc', '.pyd', '.class', '.jar', 
+            '.war', '.db', '.sqlite', '.sqlite3', '.mp3', '.mp4', '.avi', '.mov', 
+            '.ttf', '.woff', '.woff2', '.eot', '.svg', '.bin', '.dat', '.xlsx', 
+            '.docx', '.pptx', '.csv', '.parquet', '.lib', '.a', '.obj', '.o'
         }
 
         for root, dirs, files in os.walk(clone_path):
@@ -106,10 +121,24 @@ class IngestionService:
             for file in files:
                 file_path = os.path.join(root, file)
                 rel_path = os.path.relpath(file_path, clone_path)
-                file_tree.append(rel_path)
                 
                 _, ext = os.path.splitext(file)
-                lang = extension_map.get(ext.lower(), "Other")
+                ext_lower = ext.lower()
+                
+                # Safeguard 1: Ignore binary/non-code file extensions
+                if ext_lower in binary_extensions:
+                    continue
+                    
+                # Safeguard 2: Ignore file size > 500 KB to avoid OOM
+                try:
+                    file_size = os.path.getsize(file_path)
+                    if file_size > 500 * 1024:  # 500 KB
+                        continue
+                except Exception:
+                    continue
+                
+                file_tree.append(rel_path)
+                lang = extension_map.get(ext_lower, "Other")
                 
                 total_files += 1
                 language_counts[lang] = language_counts.get(lang, 0) + 1

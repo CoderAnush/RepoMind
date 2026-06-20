@@ -52,6 +52,8 @@ class Settings(BaseSettings):
 
     # GitHub App Integration
     GITHUB_PERSONAL_ACCESS_TOKEN: Optional[str] = None
+    GITHUB_CLIENT_ID: Optional[str] = Field(default=None)
+    GITHUB_CLIENT_SECRET: Optional[str] = Field(default=None)
 
     # Supabase Deployment Configurations
     SUPABASE_URL: Optional[str] = None

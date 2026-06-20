@@ -38,15 +38,22 @@ def query_chatbot(
     session_id = chat_in.session_id or str(uuid.uuid4())
     
     # 2. Query RAG pipeline
-    result = rag_service.query_repository(
-        repository_id=chat_in.repository_id,
-        user_id=current_user.id,
-        message=chat_in.message,
-        session_id=session_id,
-        db=db
-    )
-    
-    return result
+    try:
+        result = rag_service.query_repository(
+            repository_id=chat_in.repository_id,
+            user_id=current_user.id,
+            message=chat_in.message,
+            session_id=session_id,
+            db=db
+        )
+        return result
+    except Exception as e:
+        logger.error(f"[Chat Endpoint] Failed querying chatbot: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal chat service error: {str(e)}"
+        )
+
 
 
 @router.get("/history/{repository_id}/{session_id}", response_model=List[ChatMessageResponse])

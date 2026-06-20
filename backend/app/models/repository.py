@@ -25,3 +25,6 @@ class Repository(Base):
     diagrams = relationship("Diagram", back_populates="repository", cascade="all, delete-orphan")
     chats = relationship("ChatHistory", back_populates="repository", cascade="all, delete-orphan")
     reports = relationship("Report", back_populates="repository", cascade="all, delete-orphan")
+    code_reviews = relationship("CodeReview", back_populates="repository", cascade="all, delete-orphan")
+    review_findings = relationship("ReviewFinding", back_populates="repository", cascade="all, delete-orphan")
+    architecture_graph = relationship("ArchitectureGraph", uselist=False, back_populates="repository", cascade="all, delete-orphan")

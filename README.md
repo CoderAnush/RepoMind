@@ -2,6 +2,14 @@
 
 RepoMind is a production-ready enterprise SaaS platform that automatically ingests, parses, indexes, and documents software repositories. It utilizes deep Abstract Syntax Tree (AST) parsing, multi-agent AI orchestrations via LangGraph, and semantic retrieval to serve a high-fidelity React frontend dashboard with class diagrams, quality scorecards, and interactive chat.
 
+## Screenshots
+
+### Dashboard
+![Dashboard Mockup](assets/dashboard.png)
+
+### Architecture Visualization
+![Architecture Map](assets/architecture.png)
+
 ---
 
 ## 1. System Design & Architecture
@@ -30,6 +38,23 @@ flowchart TD
 3. **Identity & User Session (Supabase Auth)**: Decentralized user management via JSON Web Tokens (JWT) signed with a project-level HS256 secret.
 4. **Metadata Store (Supabase Database)**: Relational PostgreSQL engine holding user tables, repository status indexes, pre-generated documentation, and diagrams.
 5. **Code Vector Index (Qdrant Cloud)**: High-performance vector database storing code embeddings (`text-embedding-3-small`) to enable semantic search with line-grounded code citations.
+
+---
+
+## 1.5 Advanced Platform Features
+
+### A. Repository Architecture Visualization Engine
+* **Layer Classification**: Parsed AST structures categorize dependencies dynamically into Frontend, Backend, Database, and External APIs.
+* **Auto-Layout**: Computes positions on the client side using Dagre layouting on top of React Flow.
+* **Interactivity**: Zoom, pan, search elements, filter layers, and inspect node imports.
+
+### B. AI Code Review Agent
+* **Multi-Agent Orchestrator**: Aggregates security (SQL injection, weak keys), performance (N+1 queries, memory leaks), code quality (cyclomatic complexity, code smells), and architecture (circular imports, tight coupling) reports.
+* **Granular Feedbacks**: Direct code segment lines matching each vulnerability.
+
+### C. GitHub OAuth Integration & Direct Importer
+* **Redirection & Login**: OAuth client mapping to local database user profiles.
+* **Direct Importer**: High-fidelity project selection view matching Vercel's importer workspace for quick onboarding of repositories.
 
 ---
 

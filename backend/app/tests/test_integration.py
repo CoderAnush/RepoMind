@@ -137,3 +137,144 @@ def health_check_endpoint():
 
     # 8. Clean up local clone files
     IngestionService.cleanup_clone(repository_id)
+
+
+def test_code_review_agent_workflow(db):
+    # Setup user
+    user_id = str(uuid.uuid4())
+    user = User(
+        id=user_id,
+        email="reviewbot@repomind.io",
+        hashed_password=get_password_hash("reviewtest"),
+        full_name="Review Bot",
+        role="DEVELOPER"
+    )
+    db.add(user)
+    db.commit()
+
+    # Setup repository
+    repository_id = str(uuid.uuid4())
+    db_repo = Repository(
+        id=repository_id,
+        owner_id=user_id,
+        name="review_repo",
+        github_url="https://github.com/mock/review_repo",
+        branch="main",
+        status="COMPLETE"
+    )
+    db.add(db_repo)
+    db.commit()
+
+    # Add mock code chunks
+    db_chunk1 = CodeChunk(
+        repository_id=repository_id,
+        file_path="app/main.py",
+        symbol_name="main",
+        chunk_type="file",
+        content="def hello_world():\n    print('Hello World')\n",
+        language="Python"
+    )
+    db_chunk2 = CodeChunk(
+        repository_id=repository_id,
+        file_path="config.py",
+        symbol_name="config",
+        chunk_type="file",
+        content="DATABASE_URL = 'postgresql://admin:password@localhost/db'\n",
+        language="Python"
+    )
+    db.add(db_chunk1)
+    db.add(db_chunk2)
+    db.commit()
+
+    # Generate review
+    from app.services.code_review_agent import CodeReviewAgentService
+    review = CodeReviewAgentService.generate_review(repository_id, db)
+
+    # Assertions
+    assert review is not None
+    assert review.repository_id == repository_id
+    assert 0 <= review.overall_score <= 100
+    assert review.security_score is not None
+    assert review.quality_score is not None
+    assert review.performance_score is not None
+    assert review.architecture_score is not None
+    assert len(review.findings) > 0
+    assert review.summary is not None
+
+
+def test_architecture_visualization_workflow(db):
+    user_id = str(uuid.uuid4())
+    user = User(
+        id=user_id,
+        email="archbot@repomind.io",
+        hashed_password=get_password_hash("archtest"),
+        full_name="Arch Bot",
+        role="DEVELOPER"
+    )
+    db.add(user)
+    db.commit()
+
+    repository_id = str(uuid.uuid4())
+    db_repo = Repository(
+        id=repository_id,
+        owner_id=user_id,
+        name="arch_repo",
+        github_url="https://github.com/mock/arch_repo",
+        branch="main",
+        status="COMPLETE"
+    )
+    db.add(db_repo)
+    db.commit()
+
+    # Add mock chunks to represent imports, services, and models
+    db_chunk1 = CodeChunk(
+        repository_id=repository_id,
+        file_path="app/api/v1/auth.py",
+        symbol_name="login",
+        chunk_type="api_endpoint",
+        content="@router.post('/login')\ndef login():\n    pass",
+        language="Python",
+        dependencies=["app.services.auth_service"]
+    )
+    db_chunk2 = CodeChunk(
+        repository_id=repository_id,
+        file_path="app/services/auth_service.py",
+        symbol_name="AuthService",
+        chunk_type="class",
+        content="class AuthService:\n    def verify(self):\n        pass",
+        language="Python",
+        dependencies=["app.models.user"]
+    )
+    db_chunk3 = CodeChunk(
+        repository_id=repository_id,
+        file_path="app/models/user.py",
+        symbol_name="User",
+        chunk_type="class",
+        content="class User(Base):\n    id = Column(Integer)\n",
+        language="Python",
+        dependencies=[]
+    )
+    db.add(db_chunk1)
+    db.add(db_chunk2)
+    db.add(db_chunk3)
+    db.commit()
+
+    from app.services.architecture_visualizer import ArchitectureVisualizer
+    graph = ArchitectureVisualizer.generate_graph(repository_id, db)
+
+    assert graph is not None
+    assert graph.repository_id == repository_id
+    assert "nodes" in graph.graph_data
+    assert "edges" in graph.graph_data
+    
+    nodes = graph.graph_data["nodes"]
+    node_types = [n["type"] for n in nodes]
+    
+    assert "route" in node_types
+    assert "service" in node_types
+    assert "model" in node_types
+    assert "database" in node_types
+    assert "frontend" in node_types
+    assert "external" in node_types
+
+

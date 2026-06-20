@@ -75,7 +75,10 @@ Ensure you have accounts on:
    * **Output Directory**: `dist`
 5. Under **Environment Variables**, add:
    * `VITE_API_URL` = `https://repomind-backend.onrender.com/api/v1` (replace with your Render URL + `/api/v1`)
+
+   > Must include the `/api/v1` prefix because the FastAPI app serves routes under `/api/v1`.
 6. Click **Deploy**.
+
 7. Vercel will build the React SPA bundle and deploy it to a global CDN network.
 
 ---

@@ -50,25 +50,59 @@ class AgentService:
             repo.metadata_info = structure_metadata
             db.commit()
             
-            # 4. Traversal and AST chunk parsing
-            logger.info("Traversing file layout to extract chunks...")
-            all_chunks = []
+            # 4. Traversal, AST chunk parsing, and Vector Indexing (batch-optimized)
+            logger.info("Traversing file layout to extract chunks and index...")
+            vector_db = VectorDBService()
             
-            # Ignore common directories during parser traversal
+            batch_chunks = []
+            batch_db_chunks = []
+            processed_files = 0
+            total_chunks_indexed = 0
+            
+            # File extensions to ignore (binary and other heavy non-code formats)
+            binary_extensions = {
+                '.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip', '.tar', '.gz', 
+                '.7z', '.exe', '.dll', '.so', '.dylib', '.pyc', '.pyd', '.class', '.jar', 
+                '.war', '.db', '.sqlite', '.sqlite3', '.mp3', '.mp4', '.avi', '.mov', 
+                '.ttf', '.woff', '.woff2', '.eot', '.svg', '.bin', '.dat', '.xlsx', 
+                '.docx', '.pptx', '.csv', '.parquet', '.lib', '.a', '.obj', '.o'
+            }
+            
             ignore_dirs = {
                 ".git", "node_modules", "venv", ".venv", "env", "dist", 
-                "build", "__pycache__", "target", "vendor"
+                "build", "__pycache__", "target", "vendor", ".idea", ".vscode",
+                ".pytest_cache", ".mypy_cache", ".tox"
             }
+            
+            symbol_metadata_list = []
             
             for root, dirs, files in os.walk(clone_path):
                 dirs[:] = [d for d in dirs if d not in ignore_dirs]
                 for file in files:
                     file_path = os.path.join(root, file)
+                    
+                    # Safeguard 1: Skip if binary extension
+                    _, ext = os.path.splitext(file)
+                    if ext.lower() in binary_extensions:
+                        continue
+                        
+                    # Safeguard 2: Skip very large files (> 500 KB) to prevent timeout / OOM
+                    try:
+                        file_size = os.path.getsize(file_path)
+                        if file_size > 500 * 1024:  # 500 KB
+                            logger.info(f"Skipping large file: {file_path} ({file_size / 1024:.1f} KB)")
+                            continue
+                    except Exception:
+                        continue
+                    
                     # Parse code chunks
-                    file_chunks = CodeParser.chunk_file(file_path, clone_path)
+                    try:
+                        file_chunks = CodeParser.chunk_file(file_path, clone_path)
+                    except Exception as e:
+                        logger.warning(f"Error parsing file {file_path}: {e}")
+                        file_chunks = []
                     
                     for chunk in file_chunks:
-                        # Write code chunk to postgres
                         db_chunk = CodeChunk(
                             repository_id=repository_id,
                             file_path=chunk["file_path"],
@@ -78,28 +112,65 @@ class AgentService:
                             language=chunk.get("language"),
                             dependencies=chunk.get("dependencies")
                         )
-                        db.add(db_chunk)
-                        all_chunks.append(chunk)
-            
-            db.commit()
-            logger.info(f"Extracted and saved {len(all_chunks)} code chunks in SQL DB.")
+                        batch_db_chunks.append(db_chunk)
+                        batch_chunks.append(chunk)
+                        
+                        if chunk.get("symbol_name") and len(symbol_metadata_list) < 1000:
+                            symbol_metadata_list.append({
+                                "symbol_name": chunk.get("symbol_name"),
+                                "chunk_type": chunk.get("chunk_type"),
+                                "file_path": chunk.get("file_path")
+                            })
+                            
+                    processed_files += 1
+                    
+                    # Process and commit in batches of 50 chunks to prevent memory bloat
+                    if len(batch_chunks) >= 50:
+                        # 1. Index in Qdrant
+                        vector_db.index_chunks(repository_id, batch_chunks)
+                        total_chunks_indexed += len(batch_chunks)
+                        
+                        # 2. Add to postgres & commit
+                        for dbc in batch_db_chunks:
+                            db.add(dbc)
+                        db.commit()
+                        
+                        # Target-expunge code chunks to free memory without detaching Repository or Job
+                        for dbc in batch_db_chunks:
+                            try:
+                                db.expunge(dbc)
+                            except Exception:
+                                pass
+                        
+                        logger.info(f"Progress: processed {processed_files} files, indexed {total_chunks_indexed} chunks.")
+                        
+                        # Clear batch lists
+                        batch_chunks.clear()
+                        batch_db_chunks.clear()
 
-            # 5. Embedding Vector Indexing (Qdrant)
+            # Process remaining chunks
+            if batch_chunks:
+                vector_db.index_chunks(repository_id, batch_chunks)
+                total_chunks_indexed += len(batch_chunks)
+                for dbc in batch_db_chunks:
+                    db.add(dbc)
+                db.commit()
+                for dbc in batch_db_chunks:
+                    try:
+                        db.expunge(dbc)
+                    except Exception:
+                        pass
+                logger.info(f"Progress final: processed {processed_files} files, indexed {total_chunks_indexed} chunks.")
+                batch_chunks.clear()
+                batch_db_chunks.clear()
+
+            # 5. Update metadata and step for Agents
             job.step = "EMBEDDING"
             db.commit()
             
-            vector_db = VectorDBService()
-            vector_db.index_chunks(repository_id, all_chunks)
-            
-            # Enrich structure metadata with extracted symbols
-            structure_metadata["extracted_symbols"] = [
-                {
-                    "symbol_name": c.get("symbol_name"),
-                    "chunk_type": c.get("chunk_type"),
-                    "file_path": c.get("file_path")
-                }
-                for c in all_chunks if c.get("symbol_name")
-            ]
+            # Enrich structure metadata with extracted symbols (lightweight)
+            structure_metadata["extracted_symbols"] = symbol_metadata_list
+
             
             agent_state = AgentOrchestrator.process_repository(repository_id, clone_path, structure_metadata)
             
