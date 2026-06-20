@@ -5,7 +5,7 @@ from app.core.config import settings
 from app.core.logging import logger
 from app.models.chat import ChatHistory
 from app.models.repository import Repository
-from app.models.document import GeneratedDocumentation
+from app.models.document import CodeChunk, GeneratedDocumentation
 from app.services.vector_db import VectorDBService
 from app.services.llm_provider import LLMProviderService
 
@@ -61,6 +61,29 @@ class RAGService:
         languages = metadata.get("languages", {})
         file_list = metadata.get("file_list", [])
 
+        # Retrieve all file chunks to map out AST symbols and build comprehensive understanding
+        file_symbols = {}
+        try:
+            chunks = db.query(CodeChunk).filter(CodeChunk.repository_id == repository_id).all()
+            for c in chunks:
+                if c.file_path not in file_symbols:
+                    file_symbols[c.file_path] = []
+                if c.symbol_name and c.symbol_name != "Module":
+                    file_symbols[c.file_path].append((c.symbol_name, c.chunk_type))
+        except Exception as e:
+            logger.error(f"[RAG] Failed to retrieve code chunks: {e}")
+
+        file_symbols_summary = []
+        sorted_paths = sorted(file_symbols.keys())
+        for path in sorted_paths[:150]:  # Cap to prevent giant prompt payloads
+            syms = file_symbols[path]
+            syms_str = ", ".join([f"{name} ({kind})" for name, kind in syms[:6]])
+            if syms_str:
+                file_symbols_summary.append(f"- File: {path} (Symbols: {syms_str})")
+            else:
+                file_symbols_summary.append(f"- File: {path}")
+        file_symbols_string = "\n".join(file_symbols_summary)
+
         readme_content = ""
         try:
             readme_doc = db.query(GeneratedDocumentation).filter(
@@ -87,6 +110,7 @@ class RAGService:
             f"Total LOC: {total_loc}\n"
             f"Languages: {str(languages)}\n"
             f"File List Sample: {str(file_list[:15])}\n\n"
+            f"COMPLETE FILE SYMBOLS MAP:\n{file_symbols_string}\n\n"
         )
         if readme_content:
             system_prompt += f"REPOSITORY README / OVERVIEW:\n{readme_content}\n\n"
