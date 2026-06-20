@@ -113,7 +113,7 @@ def delete_repository(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Deletes a repository, cascading to clear all database entities and deleting associated Qdrant vectors.
+    Deletes a repository, using direct SQL deletes and direct Qdrant connection to avoid ORM cascades and API timeouts.
     """
     repo = db.query(Repository).filter(
         Repository.id == id,
@@ -126,13 +126,17 @@ def delete_repository(
             detail="Repository not found."
         )
         
-    # Delete from Qdrant
+    # 1. Direct Qdrant delete using basic client (no collections initialization check overhead)
     try:
-        from app.services.vector_db import VectorDBService
+        from qdrant_client import QdrantClient
         from qdrant_client.models import Filter, FieldCondition, MatchValue
         from app.core.config import settings
         
-        vector_db = VectorDBService()
+        if settings.QDRANT_URL:
+            client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)
+        else:
+            client = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT)
+            
         repo_filter = Filter(
             must=[
                 FieldCondition(
@@ -143,7 +147,7 @@ def delete_repository(
         )
         
         try:
-            vector_db.client.delete(
+            client.delete(
                 collection_name=settings.QDRANT_COLLECTION_CODE,
                 points_selector=repo_filter,
                 wait=False
@@ -152,7 +156,7 @@ def delete_repository(
             pass
             
         try:
-            vector_db.client.delete(
+            client.delete(
                 collection_name=settings.QDRANT_COLLECTION_DOCS,
                 points_selector=repo_filter,
                 wait=False
@@ -163,9 +167,27 @@ def delete_repository(
         from app.core.logging import logger
         logger.warning(f"Error clean-up vector DB: {e}")
         
-    # Delete database row (cascades automatically due to cascade="all, delete-orphan")
-    db.delete(repo)
-    db.commit()
+    # 2. Fast Bulk SQL Deletes (single network round trip per table, avoids loading thousands of rows into ORM)
+    from sqlalchemy import text
+    try:
+        db.execute(text("DELETE FROM code_chunks WHERE repository_id = :id"), {"id": id})
+        db.execute(text("DELETE FROM processing_jobs WHERE repository_id = :id"), {"id": id})
+        db.execute(text("DELETE FROM generated_documentations WHERE repository_id = :id"), {"id": id})
+        db.execute(text("DELETE FROM diagrams WHERE repository_id = :id"), {"id": id})
+        db.execute(text("DELETE FROM reports WHERE repository_id = :id"), {"id": id})
+        db.execute(text("DELETE FROM review_findings WHERE repository_id = :id"), {"id": id})
+        db.execute(text("DELETE FROM architecture_graphs WHERE repository_id = :id"), {"id": id})
+        db.execute(text("DELETE FROM chat_history WHERE repository_id = :id"), {"id": id})
+        db.execute(text("DELETE FROM repositories WHERE id = :id"), {"id": id})
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        from app.core.logging import logger
+        logger.error(f"SQL bulk delete error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete repository due to a database error."
+        )
     
     return status.HTTP_204_NO_CONTENT
 
