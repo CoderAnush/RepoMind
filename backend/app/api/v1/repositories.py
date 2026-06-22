@@ -243,6 +243,7 @@ def run_code_review(
             "line_number": f.line_number,
             "title": f.title,
             "description": f.description,
+            "rule": getattr(f, 'rule', None) or f"{f.category} Scan",
             "suggested_fix": f.suggested_fix,
             "code_before": f.code_before,
             "code_after": f.code_after
@@ -302,6 +303,7 @@ def get_code_review(
             "line_number": f.line_number,
             "title": f.title,
             "description": f.description,
+            "rule": getattr(f, 'rule', None) or f"{f.category} Scan",
             "suggested_fix": f.suggested_fix,
             "code_before": f.code_before,
             "code_after": f.code_after

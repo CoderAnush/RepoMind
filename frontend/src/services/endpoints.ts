@@ -125,4 +125,52 @@ export const architectureService = {
   },
 };
 
+// ─── Collaboration: Insights ──────────────────────────────────────────────────
 
+export const insightService = {
+  list: async (repoId: string): Promise<any[]> => {
+    const { data } = await apiClient.get<any[]>(`/collab/insights/${repoId}`);
+    return data;
+  },
+  save: async (payload: { repository_id: string; title: string; insight_type: string; content: string; evidence?: any }): Promise<any> => {
+    const { data } = await apiClient.post<any>('/collab/insights', payload);
+    return data;
+  },
+  delete: async (insightId: string): Promise<void> => {
+    await apiClient.delete(`/collab/insights/${insightId}`);
+  },
+};
+
+// ─── Collaboration: Notes ─────────────────────────────────────────────────────
+
+export const notesService = {
+  list: async (repoId: string): Promise<any[]> => {
+    const { data } = await apiClient.get<any[]>(`/collab/notes/${repoId}`);
+    return data;
+  },
+  add: async (repoId: string, content: string): Promise<any> => {
+    const { data } = await apiClient.post<any>(`/collab/notes/${repoId}`, { content });
+    return data;
+  },
+  delete: async (noteId: string): Promise<void> => {
+    await apiClient.delete(`/collab/notes/${noteId}`);
+  },
+};
+
+// ─── Collaboration: Activity ──────────────────────────────────────────────────
+
+export const activityService = {
+  list: async (repoId: string, limit = 30): Promise<any[]> => {
+    const { data } = await apiClient.get<any[]>(`/collab/activity/${repoId}?limit=${limit}`);
+    return data;
+  },
+};
+
+// ─── Collaboration: CTO Report ────────────────────────────────────────────────
+
+export const ctoReportService = {
+  get: async (repoId: string): Promise<any> => {
+    const { data } = await apiClient.get<any>(`/collab/report/${repoId}`);
+    return data;
+  },
+};

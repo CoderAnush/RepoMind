@@ -74,10 +74,29 @@ export interface Finding {
   line?: number;
 }
 
+export interface ChatEvidence {
+  retrieved_files: string[];
+  retrieved_chunks: {
+    id: string;
+    file_path: string;
+    similarity_score: number;
+    symbol: string;
+  }[];
+  graph_trace: {
+    path: string[];
+    visited_nodes: number;
+    depth: number;
+  };
+  confidence_score: number;
+  confidence_label: 'HIGH' | 'MEDIUM' | 'LOW';
+  answer_type: string;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   message: string;
   references?: CodeReference[];
+  evidence?: ChatEvidence;
   timestamp?: Date;
 }
 
@@ -97,6 +116,7 @@ export interface ChatRequest {
 export interface ChatResponse {
   answer: string;
   references?: CodeReference[];
+  evidence?: ChatEvidence;
   conversation_id?: string;
 }
 

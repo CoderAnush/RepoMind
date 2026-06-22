@@ -336,10 +336,44 @@ export default function RepoReviewPage() {
                 {/* Expanded Details */}
                 {isExpanded && (
                   <div className="border-t border-zinc-800/60 bg-zinc-900/30 p-4 space-y-4 text-xs">
+
+                    {/* Evidence Metadata Row */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* File + Line */}
+                      <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3 space-y-1">
+                        <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1">
+                          <FileCode size={10} className="text-violet-400" />
+                          Location
+                        </div>
+                        {finding.file_path ? (
+                          <div className="font-mono text-[11px] text-zinc-200 break-all">
+                            {finding.file_path}
+                            {finding.line_number && (
+                              <span className="ml-1 text-violet-400 font-bold">:{finding.line_number}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-zinc-600 text-[10px]">No file location</div>
+                        )}
+                      </div>
+
+                      {/* Rule Triggered */}
+                      <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3 space-y-1">
+                        <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1">
+                          <ShieldCheck size={10} className="text-amber-400" />
+                          Rule Triggered
+                        </div>
+                        <div className="font-mono text-[11px] text-amber-300 break-all">
+                          {finding.rule || finding.category + ' Scan'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Reason */}
                     <div className="space-y-1">
                       <span className="flex items-center gap-1 font-bold text-violet-400 tracking-wide">
                         <Sparkles size={13} />
-                        Description
+                        Reason / Description
                       </span>
                       <p className="text-zinc-400 leading-relaxed pl-4 border-l border-zinc-800">
                         {finding.description || 'No detailed description.'}

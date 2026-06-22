@@ -12,6 +12,7 @@ from app.api.v1.repositories import router as repo_router
 from app.api.v1.chat import router as chat_router
 from app.api.v1.documentation import router as doc_router
 from app.api.v1.health import router as health_router
+from app.api.v1.collaboration import router as collab_router
 
 # Setup structured logging
 setup_logging()
@@ -80,6 +81,7 @@ app.include_router(repo_router, prefix=f"{settings.API_V1_STR}/repositories", ta
 app.include_router(chat_router, prefix=f"{settings.API_V1_STR}/chat", tags=["RAG Chatbot"])
 app.include_router(doc_router, prefix=f"{settings.API_V1_STR}/repositories", tags=["Repository Insights"])
 app.include_router(health_router, prefix=f"{settings.API_V1_STR}/health", tags=["Health"])
+app.include_router(collab_router, prefix=f"{settings.API_V1_STR}/collab", tags=["Collaboration"])
 
 @app.get("/", tags=["Health"])
 def health_check():

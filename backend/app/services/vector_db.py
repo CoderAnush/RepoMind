@@ -295,4 +295,11 @@ class VectorDBService:
             limit=limit
         )
 
-        return [hit.payload for hit in search_result.points]
+        results = []
+        for hit in search_result.points:
+            p = dict(hit.payload or {})
+            p["similarity_score"] = getattr(hit, "score", 0.85)
+            # Make sure it has a fallback chunk ID
+            p["id"] = getattr(hit, "id", None) or f"chunk_{abs(hash(p.get('content', '')) % 100000)}"
+            results.append(p)
+        return results

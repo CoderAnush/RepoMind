@@ -80,9 +80,15 @@ class AgentService:
             
             symbol_metadata_list = []
             
+            stop_traversal = False
             for root, dirs, files in os.walk(clone_path):
+                if stop_traversal:
+                    break
                 dirs[:] = [d for d in dirs if d not in ignore_dirs]
                 for file in files:
+                    if processed_files >= 120:
+                        stop_traversal = True
+                        break
                     file_path = os.path.join(root, file)
                     
                     # Safeguard 1: Skip if binary extension

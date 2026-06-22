@@ -5,14 +5,14 @@ import { cn } from '../../utils/cn';
 import {
   Layout, FileText, Network, ShieldCheck, BarChart2,
   MessageSquare, ChevronLeft, GitBranch, RefreshCw, AlertCircle,
-  Cpu, TrendingUp, Layers
+  Cpu, TrendingUp, Layers, Bookmark, StickyNote,
+  FileBarChart, Activity, GitCompare
 } from 'lucide-react';
 
 export default function RepoLayout() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
 
-  // Fetch repository detail with automatic caching
   const { data: repo, isLoading, error, refetch } = useQuery({
     queryKey: ['repository', id],
     queryFn: () => repoService.get(id!),
@@ -46,31 +46,51 @@ export default function RepoLayout() {
     );
   }
 
-  const tabs = [
-    { to: `/repositories/${id}`, label: 'Overview', icon: Layout, exact: true },
-    { to: `/repositories/${id}/docs`, label: 'Documentation', icon: FileText },
-    { to: `/repositories/${id}/diagrams`, label: 'Diagrams', icon: Network },
-    { to: `/repositories/${id}/architecture`, label: 'Architecture Map', icon: Layers },
-    { to: `/repositories/${id}/reports/security`, label: 'Security Audit', icon: ShieldCheck },
-    { to: `/repositories/${id}/reports/quality`, label: 'Code Quality', icon: BarChart2 },
-    { to: `/repositories/${id}/review`, label: 'AI Code Review', icon: Cpu },
-    { to: `/repositories/${id}/executive-summary`, label: 'Executive Summary', icon: TrendingUp },
-    { to: `/repositories/${id}/chat`, label: 'AI Code Chat', icon: MessageSquare },
+  const tabGroups = [
+    {
+      label: 'Analysis',
+      tabs: [
+        { to: `/repositories/${id}`, label: 'Overview', icon: Layout, exact: true },
+        { to: `/repositories/${id}/docs`, label: 'Documentation', icon: FileText },
+        { to: `/repositories/${id}/diagrams`, label: 'Diagrams', icon: Network },
+        { to: `/repositories/${id}/architecture`, label: 'Architecture Map', icon: Layers },
+        { to: `/repositories/${id}/executive-summary`, label: 'Executive Summary', icon: TrendingUp },
+        { to: `/repositories/${id}/chat`, label: 'AI Code Chat', icon: MessageSquare },
+      ],
+    },
+    {
+      label: 'Security & Review',
+      tabs: [
+        { to: `/repositories/${id}/reports/security`, label: 'Security Audit', icon: ShieldCheck },
+        { to: `/repositories/${id}/reports/quality`, label: 'Code Quality', icon: BarChart2 },
+        { to: `/repositories/${id}/review`, label: 'AI Code Review', icon: Cpu },
+      ],
+    },
+    {
+      label: 'Workspace',
+      tabs: [
+        { to: `/repositories/${id}/insights`, label: 'Saved Insights', icon: Bookmark },
+        { to: `/repositories/${id}/notes`, label: 'Notes', icon: StickyNote },
+        { to: `/repositories/${id}/cto-report`, label: 'CTO Report', icon: FileBarChart },
+        { to: `/repositories/${id}/activity`, label: 'Activity', icon: Activity },
+        { to: `/repositories/${id}/compare`, label: 'Snapshot Comparison', icon: GitCompare },
+      ],
+    },
   ];
 
   return (
     <div className="flex-1 flex overflow-hidden bg-zinc-950">
       {/* Sidebar Nav */}
-      <aside className="w-56 flex flex-col border-r border-zinc-800/60 bg-zinc-900/10 shrink-0">
+      <aside className="w-56 flex flex-col border-r border-zinc-800/60 bg-zinc-900/10 shrink-0 overflow-y-auto">
         {/* Back link */}
-        <div className="p-4 border-b border-zinc-800/60">
+        <div className="p-4 border-b border-zinc-800/60 shrink-0">
           <Link to="/dashboard" className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 font-medium transition-colors">
             <ChevronLeft size={13} /> Back to Dashboard
           </Link>
         </div>
 
         {/* Workspace Title Card */}
-        <div className="p-4 border-b border-zinc-800/60 bg-zinc-900/30">
+        <div className="p-4 border-b border-zinc-800/60 bg-zinc-900/30 shrink-0">
           <div className="flex items-center gap-2">
             <GitBranch size={15} className="text-violet-400 shrink-0" />
             <span className="text-sm font-bold text-zinc-200 truncate">{repo.name}</span>
@@ -99,29 +119,37 @@ export default function RepoLayout() {
           </div>
         </div>
 
-        {/* Tab Items */}
-        <nav className="p-3 space-y-0.5 flex-1">
-          {tabs.map((tab) => {
-            const isActive = tab.exact 
-              ? location.pathname === tab.to
-              : location.pathname.startsWith(tab.to);
-
-            return (
-              <Link
-                key={tab.to}
-                to={tab.to}
-                className={cn(
-                  'flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150',
-                  isActive
-                    ? 'bg-violet-500/10 text-violet-400 border border-violet-500/20'
-                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40'
-                )}
-              >
-                <tab.icon size={14} />
-                {tab.label}
-              </Link>
-            );
-          })}
+        {/* Tab Groups */}
+        <nav className="flex-1 p-3 space-y-5">
+          {tabGroups.map(group => (
+            <div key={group.label}>
+              <div className="text-[9px] font-extrabold uppercase tracking-widest text-zinc-600 px-3 mb-1.5">
+                {group.label}
+              </div>
+              <div className="space-y-0.5">
+                {group.tabs.map(tab => {
+                  const isActive = (tab as any).exact
+                    ? location.pathname === tab.to
+                    : location.pathname.startsWith(tab.to);
+                  return (
+                    <Link
+                      key={tab.to}
+                      to={tab.to}
+                      className={cn(
+                        'flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150',
+                        isActive
+                          ? 'bg-violet-500/10 text-violet-400 border border-violet-500/20'
+                          : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40'
+                      )}
+                    >
+                      <tab.icon size={14} />
+                      {tab.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
       </aside>
 

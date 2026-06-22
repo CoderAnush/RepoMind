@@ -14,6 +14,7 @@ class ChatHistory(Base):
     role = Column(String(20), nullable=False)  # system, user, assistant
     message = Column(Text, nullable=False)
     references = Column(JSON, nullable=True)  # List of dicts: {"file_path": "...", "snippet": "..."}
+    evidence = Column(JSON, nullable=True)  # Explainability metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships

@@ -17,6 +17,7 @@ class ChatMessageResponse(BaseModel):
     role: str
     message: str
     references: Optional[List[Dict[str, Any]]] = None
+    evidence: Optional[Dict[str, Any]] = None
     created_at: datetime
 
     class Config:
@@ -26,3 +27,4 @@ class ChatResponse(BaseModel):
     answer: str
     session_id: str
     references: List[ChatReference]
+    evidence: Optional[Dict[str, Any]] = None

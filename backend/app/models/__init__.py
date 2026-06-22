@@ -6,6 +6,7 @@ from app.models.job import ProcessingJob
 from app.models.document import CodeChunk, GeneratedDocumentation
 from app.models.chat import ChatHistory
 from app.models.analysis import Diagram, Report, CodeReview, ArchitectureGraph, ReviewFinding
+from app.models.collaboration import SavedInsight, RepositoryNote, ActivityEvent
 
 __all__ = [
     "Base",
@@ -19,5 +20,8 @@ __all__ = [
     "Report",
     "CodeReview",
     "ArchitectureGraph",
-    "ReviewFinding"
+    "ReviewFinding",
+    "SavedInsight",
+    "RepositoryNote",
+    "ActivityEvent",
 ]

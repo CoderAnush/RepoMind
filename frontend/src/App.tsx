@@ -17,6 +17,11 @@ import RepoChatPage from './pages/repo/RepoChatPage';
 import RepoReviewPage from './pages/repo/RepoReviewPage';
 import RepoExecutiveSummaryPage from './pages/repo/RepoExecutiveSummaryPage';
 import RepoArchitecturePage from './pages/repo/RepoArchitecturePage';
+import RepoInsightsPage from './pages/repo/RepoInsightsPage';
+import RepoNotesPage from './pages/repo/RepoNotesPage';
+import RepoCTOReportPage from './pages/repo/RepoCTOReportPage';
+import RepoActivityPage from './pages/repo/RepoActivityPage';
+import RepoComparePage from './pages/repo/RepoComparePage';
 
 export default function App() {
   return (
@@ -57,6 +62,11 @@ export default function App() {
         <Route path="review" element={<RepoReviewPage />} />
         <Route path="executive-summary" element={<RepoExecutiveSummaryPage />} />
         <Route path="architecture" element={<RepoArchitecturePage />} />
+        <Route path="insights" element={<RepoInsightsPage />} />
+        <Route path="notes" element={<RepoNotesPage />} />
+        <Route path="cto-report" element={<RepoCTOReportPage />} />
+        <Route path="activity" element={<RepoActivityPage />} />
+        <Route path="compare" element={<RepoComparePage />} />
       </Route>
 
       {/* Fallback */}
