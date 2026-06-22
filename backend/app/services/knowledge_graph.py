@@ -54,10 +54,16 @@ class KnowledgeGraphService:
                     "type": "contains"
                 })
 
+        # Pre-filter lists to avoid inner loop overhead
+        file_nodes = [k for k, v in nodes.items() if v["type"] == "file"]
+        symbol_targets = {
+            k: v for k, v in nodes.items()
+            if v["type"] in ["class", "function", "service", "model"]
+        }
+
         # 2. Extract relationships: Routes, Calls, Uses, Imports
         for chunk in chunks:
             # Extract Route nodes from decorators
-            # Match decorators like @app.get("/path"), @router.post("/path"), etc.
             if chunk.content:
                 route_matches = re.findall(r'@\w+(?:\.\w+)?\((?:\'|")([^\'"]+)(?:\'|")', chunk.content)
                 for route_path in route_matches:
@@ -73,34 +79,29 @@ class KnowledgeGraphService:
                         })
 
                 # Extract imports and build File -> Imports -> File edges
-                # dependencies array typically contains imports
                 if chunk.dependencies:
                     for imp in chunk.dependencies:
-                        # Clean import name (e.g. "from click.core import Command" -> "click/core")
                         clean_imp = imp.replace(".", "/").replace("\\", "/")
-                        for other_file in nodes.keys():
-                            if nodes[other_file]["type"] == "file" and clean_imp in other_file:
+                        for other_file in file_nodes:
+                            if clean_imp in other_file:
                                 edges.append({
                                     "source": chunk.file_path,
                                     "target": other_file,
                                     "type": "imports"
                                 })
 
-                # Extract call graphs / function call dependencies
-                # Fast static parsing: check if target_symbol name is present in chunk words
-                if chunk.content:
-                    words = set(re.findall(r'\b[a-zA-Z0-9_]+\b', chunk.content))
-                    for target_symbol, target_node in nodes.items():
-                        if target_node["type"] in ["class", "function", "service", "model"]:
-                            if target_symbol == chunk.symbol_name:
-                                continue
-                            if target_symbol in words:
-                                # Edge: caller -> callee
-                                edges.append({
-                                    "source": chunk.symbol_name or chunk.file_path,
-                                    "target": target_symbol,
-                                    "type": "calls" if target_node["type"] != "model" else "uses"
-                                })
+                # Extract call graphs / function call dependencies (O(N) using set intersection)
+                words = set(re.findall(r'\b[a-zA-Z0-9_]+\b', chunk.content))
+                matching_symbols = words.intersection(symbol_targets.keys())
+                for target_symbol in matching_symbols:
+                    if target_symbol == chunk.symbol_name:
+                        continue
+                    target_node = symbol_targets[target_symbol]
+                    edges.append({
+                        "source": chunk.symbol_name or chunk.file_path,
+                        "target": target_symbol,
+                        "type": "calls" if target_node["type"] != "model" else "uses"
+                    })
 
         return {
             "nodes": list(nodes.values()),
