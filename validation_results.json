@@ -1,0 +1,656 @@
+{
+  "FastAPI": {
+    "id": "5bd8def6-9b1c-4f12-9a22-c9e2d1e25ac3",
+    "intelligence_test": [
+      {
+        "question": "Where should a new developer start?",
+        "answer_length": 879,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 13.150920391082764
+      },
+      {
+        "question": "Explain the architecture.",
+        "answer_length": 1180,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 8.67452621459961
+      },
+      {
+        "question": "Trace an execution path.",
+        "answer_length": 851,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 8.775226593017578
+      },
+      {
+        "question": "What are the key modules?",
+        "answer_length": 669,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 8.818219900131226
+      },
+      {
+        "question": "What are the most important files?",
+        "answer_length": 898,
+        "references_count": 5,
+        "has_repo_files": true,
+        "latency": 9.0394606590271
+      },
+      {
+        "question": "Show dependency relationships.",
+        "answer_length": 651,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 9.556851387023926
+      }
+    ],
+    "hallucination_check": {
+      "files": [
+        {
+          "item": "fastapi/applications.py",
+          "hallucinated": false
+        },
+        {
+          "item": "fastapi/routing.py",
+          "hallucinated": false
+        },
+        {
+          "item": "fastapi/params.py",
+          "hallucinated": false
+        },
+        {
+          "item": "fastapi/exceptions.py",
+          "hallucinated": false
+        },
+        {
+          "item": "fastapi/dependencies/utils.py",
+          "hallucinated": false
+        }
+      ],
+      "functions": [
+        {
+          "item": "get_swagger_ui_html",
+          "hallucinated": false
+        },
+        {
+          "item": "request_validation_exception_handler",
+          "hallucinated": false
+        },
+        {
+          "item": "solve_dependencies",
+          "hallucinated": false
+        }
+      ],
+      "classes": [
+        {
+          "item": "FastAPI",
+          "hallucinated": false
+        },
+        {
+          "item": "APIRoute",
+          "hallucinated": false
+        },
+        {
+          "item": "HTTPException",
+          "hallucinated": false
+        }
+      ]
+    },
+    "performance": {
+      "avg_latency": 9.632668887867647
+    },
+    "accuracy_pct": 100.0,
+    "hallucination_pct": 0.0
+  },
+  "SQLAlchemy": {
+    "id": "5ff4c35d-2a01-4654-9ebc-eea93ee76aa8",
+    "intelligence_test": [
+      {
+        "question": "Where should a new developer start?",
+        "answer_length": 997,
+        "references_count": 5,
+        "has_repo_files": true,
+        "latency": 20.559956312179565
+      },
+      {
+        "question": "Explain the architecture.",
+        "answer_length": 1136,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 17.662521362304688
+      },
+      {
+        "question": "Trace an execution path.",
+        "answer_length": 5876,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 22.34153461456299
+      },
+      {
+        "question": "What are the key modules?",
+        "answer_length": 565,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 18.928425550460815
+      },
+      {
+        "question": "What are the most important files?",
+        "answer_length": 550,
+        "references_count": 5,
+        "has_repo_files": true,
+        "latency": 18.572261810302734
+      },
+      {
+        "question": "Show dependency relationships.",
+        "answer_length": 5059,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 21.72090458869934
+      }
+    ],
+    "hallucination_check": {
+      "files": [
+        {
+          "item": "lib/sqlalchemy/orm/session.py",
+          "hallucinated": false
+        },
+        {
+          "item": "lib/sqlalchemy/orm/query.py",
+          "hallucinated": false
+        },
+        {
+          "item": "lib/sqlalchemy/sql/elements.py",
+          "hallucinated": false
+        },
+        {
+          "item": "lib/sqlalchemy/engine/base.py",
+          "hallucinated": false
+        },
+        {
+          "item": "lib/sqlalchemy/sql/schema.py",
+          "hallucinated": false
+        }
+      ],
+      "functions": [
+        {
+          "item": "create_engine",
+          "hallucinated": false
+        },
+        {
+          "item": "sessionmaker",
+          "hallucinated": false
+        },
+        {
+          "item": "select",
+          "hallucinated": false
+        }
+      ],
+      "classes": [
+        {
+          "item": "Session",
+          "hallucinated": false
+        },
+        {
+          "item": "Query",
+          "hallucinated": false
+        },
+        {
+          "item": "Engine",
+          "hallucinated": false
+        }
+      ]
+    },
+    "performance": {
+      "avg_latency": 17.178832194384405
+    },
+    "accuracy_pct": 100.0,
+    "hallucination_pct": 0.0
+  },
+  "CrewAI": {
+    "id": "197d475e-8987-4f09-accd-eb75781a0f5e",
+    "intelligence_test": [],
+    "hallucination_check": {
+      "files": [
+        {
+          "item": "src/crewai/crew.py",
+          "hallucinated": true
+        },
+        {
+          "item": "src/crewai/agent.py",
+          "hallucinated": true
+        },
+        {
+          "item": "src/crewai/task.py",
+          "hallucinated": true
+        },
+        {
+          "item": "src/crewai/process.py",
+          "hallucinated": false
+        },
+        {
+          "item": "src/crewai/tools/tool.py",
+          "hallucinated": false
+        }
+      ],
+      "functions": [
+        {
+          "item": "kickoff",
+          "hallucinated": false
+        },
+        {
+          "item": "execute_task",
+          "hallucinated": false
+        }
+      ],
+      "classes": [
+        {
+          "item": "Crew",
+          "hallucinated": false
+        },
+        {
+          "item": "Agent",
+          "hallucinated": false
+        },
+        {
+          "item": "Task",
+          "hallucinated": false
+        }
+      ]
+    },
+    "performance": {
+      "avg_latency": 3.211953654885292
+    },
+    "accuracy_pct": 70.0,
+    "hallucination_pct": 30.0
+  },
+  "LangChain": {
+    "id": "09efce8b-7a62-4b87-bc89-bf79216d8aa6",
+    "intelligence_test": [
+      {
+        "question": "Where should a new developer start?",
+        "answer_length": 805,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 6.340525150299072
+      },
+      {
+        "question": "Explain the architecture.",
+        "answer_length": 1076,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 5.991034746170044
+      },
+      {
+        "question": "Trace an execution path.",
+        "answer_length": 487,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 6.581253528594971
+      },
+      {
+        "question": "What are the key modules?",
+        "answer_length": 2986,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 6.500009059906006
+      },
+      {
+        "question": "Show dependency relationships.",
+        "answer_length": 1646,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 9.331450462341309
+      }
+    ],
+    "hallucination_check": {
+      "files": [
+        {
+          "item": "libs/core/langchain_core/prompts/prompt.py",
+          "hallucinated": false
+        },
+        {
+          "item": "libs/core/langchain_core/runnables/base.py",
+          "hallucinated": true
+        },
+        {
+          "item": "libs/core/langchain_core/language_models/chat_models.py",
+          "hallucinated": false
+        },
+        {
+          "item": "libs/core/langchain_core/output_parsers/base.py",
+          "hallucinated": false
+        },
+        {
+          "item": "libs/core/langchain_core/documents/base.py",
+          "hallucinated": false
+        }
+      ],
+      "functions": [
+        {
+          "item": "from_template",
+          "hallucinated": false
+        },
+        {
+          "item": "invoke",
+          "hallucinated": false
+        }
+      ],
+      "classes": [
+        {
+          "item": "PromptTemplate",
+          "hallucinated": false
+        },
+        {
+          "item": "RunnableSequence",
+          "hallucinated": false
+        },
+        {
+          "item": "BaseChatModel",
+          "hallucinated": false
+        }
+      ]
+    },
+    "performance": {
+      "avg_latency": 5.878689736127853
+    },
+    "accuracy_pct": 90.0,
+    "hallucination_pct": 10.0
+  },
+  "Transformers": {
+    "id": "758099b0-4409-4cfd-a492-86753670b98d",
+    "intelligence_test": [
+      {
+        "question": "Where should a new developer start?",
+        "answer_length": 783,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 7.4245545864105225
+      },
+      {
+        "question": "Explain the architecture.",
+        "answer_length": 1260,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 7.035199403762817
+      },
+      {
+        "question": "Trace an execution path.",
+        "answer_length": 453,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 8.229425430297852
+      },
+      {
+        "question": "What are the key modules?",
+        "answer_length": 622,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 7.862999439239502
+      },
+      {
+        "question": "What are the most important files?",
+        "answer_length": 3100,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 7.87872314453125
+      },
+      {
+        "question": "Show dependency relationships.",
+        "answer_length": 1801,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 9.166597843170166
+      }
+    ],
+    "hallucination_check": {
+      "files": [
+        {
+          "item": "src/transformers/models/bert/modeling_bert.py",
+          "hallucinated": true
+        },
+        {
+          "item": "src/transformers/tokenization_utils.py",
+          "hallucinated": false
+        },
+        {
+          "item": "src/transformers/pipelines/__init__.py",
+          "hallucinated": false
+        },
+        {
+          "item": "src/transformers/configuration_utils.py",
+          "hallucinated": false
+        },
+        {
+          "item": "src/transformers/generation/utils.py",
+          "hallucinated": false
+        }
+      ],
+      "functions": [
+        {
+          "item": "from_pretrained",
+          "hallucinated": false
+        },
+        {
+          "item": "pipeline",
+          "hallucinated": false
+        }
+      ],
+      "classes": [
+        {
+          "item": "BertModel",
+          "hallucinated": false
+        },
+        {
+          "item": "PreTrainedTokenizer",
+          "hallucinated": false
+        },
+        {
+          "item": "Pipeline",
+          "hallucinated": false
+        }
+      ]
+    },
+    "performance": {
+      "avg_latency": 7.849551245570183
+    },
+    "accuracy_pct": 90.0,
+    "hallucination_pct": 10.0
+  },
+  "Open-WebUI": {
+    "id": "fae3a2e6-0a5d-46bb-872d-7a2b21fa4d93",
+    "intelligence_test": [
+      {
+        "question": "Where should a new developer start?",
+        "answer_length": 1120,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 4.912750005722046
+      },
+      {
+        "question": "Explain the architecture.",
+        "answer_length": 961,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 5.106662273406982
+      },
+      {
+        "question": "Trace an execution path.",
+        "answer_length": 384,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 4.928102970123291
+      },
+      {
+        "question": "What are the key modules?",
+        "answer_length": 738,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 5.909594535827637
+      },
+      {
+        "question": "What are the most important files?",
+        "answer_length": 724,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 4.793290853500366
+      },
+      {
+        "question": "Show dependency relationships.",
+        "answer_length": 1595,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 4.6083362102508545
+      }
+    ],
+    "hallucination_check": {
+      "files": [
+        {
+          "item": "backend/open_webui/main.py",
+          "hallucinated": false
+        },
+        {
+          "item": "backend/open_webui/apps/webui/models/users.py",
+          "hallucinated": false
+        },
+        {
+          "item": "backend/open_webui/apps/webui/models/chats.py",
+          "hallucinated": false
+        },
+        {
+          "item": "backend/open_webui/apps/webui/routers/auths.py",
+          "hallucinated": false
+        },
+        {
+          "item": "backend/open_webui/utils/misc.py",
+          "hallucinated": false
+        }
+      ],
+      "functions": [
+        {
+          "item": "get_current_user",
+          "hallucinated": false
+        },
+        {
+          "item": "generate_token",
+          "hallucinated": false
+        }
+      ],
+      "classes": [
+        {
+          "item": "User",
+          "hallucinated": true
+        },
+        {
+          "item": "Chat",
+          "hallucinated": false
+        },
+        {
+          "item": "AuthForm",
+          "hallucinated": false
+        }
+      ]
+    },
+    "performance": {
+      "avg_latency": 4.895870745182037
+    },
+    "accuracy_pct": 90.0,
+    "hallucination_pct": 10.0
+  },
+  "Next.js": {
+    "id": "71a4253d-414e-4ee9-9887-36c3cf9f1b97",
+    "intelligence_test": [
+      {
+        "question": "Where should a new developer start?",
+        "answer_length": 1203,
+        "references_count": 5,
+        "has_repo_files": true,
+        "latency": 4.795768976211548
+      },
+      {
+        "question": "Explain the architecture.",
+        "answer_length": 1075,
+        "references_count": 5,
+        "has_repo_files": true,
+        "latency": 5.003925800323486
+      },
+      {
+        "question": "Trace an execution path.",
+        "answer_length": 394,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 4.194706439971924
+      },
+      {
+        "question": "What are the key modules?",
+        "answer_length": 743,
+        "references_count": 5,
+        "has_repo_files": true,
+        "latency": 4.767582893371582
+      },
+      {
+        "question": "What are the most important files?",
+        "answer_length": 3118,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 4.701547861099243
+      },
+      {
+        "question": "Show dependency relationships.",
+        "answer_length": 1661,
+        "references_count": 5,
+        "has_repo_files": false,
+        "latency": 4.156680345535278
+      }
+    ],
+    "hallucination_check": {
+      "files": [
+        {
+          "item": "packages/next/src/server/next-server.ts",
+          "hallucinated": false
+        },
+        {
+          "item": "packages/next/src/client/index.tsx",
+          "hallucinated": false
+        },
+        {
+          "item": "packages/next/src/build/index.ts",
+          "hallucinated": false
+        },
+        {
+          "item": "packages/next/src/shared/lib/router/router.ts",
+          "hallucinated": false
+        },
+        {
+          "item": "packages/next/src/server/render.tsx",
+          "hallucinated": false
+        }
+      ],
+      "functions": [
+        {
+          "item": "renderToHTML",
+          "hallucinated": false
+        },
+        {
+          "item": "getRequestHandler",
+          "hallucinated": false
+        }
+      ],
+      "classes": [
+        {
+          "item": "NextServer",
+          "hallucinated": false
+        },
+        {
+          "item": "Router",
+          "hallucinated": false
+        }
+      ]
+    },
+    "performance": {
+      "avg_latency": 4.615342124303182
+    },
+    "accuracy_pct": 100.0,
+    "hallucination_pct": 0.0
+  }
+}
