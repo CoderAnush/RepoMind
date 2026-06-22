@@ -21,3 +21,4 @@ httpx>=0.24.1
 websockets>=11.0.3
 structlog>=23.1.0
 python-dotenv>=1.0.0
+fpdf2>=2.7.0
