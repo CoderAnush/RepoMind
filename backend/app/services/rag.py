@@ -92,12 +92,14 @@ class RAGService:
         # Retrieve all file chunks to map out AST symbols and build comprehensive understanding
         file_symbols = {}
         try:
-            chunks = db.query(CodeChunk).filter(CodeChunk.repository_id == repository_id).all()
-            for c in chunks:
-                if c.file_path not in file_symbols:
-                    file_symbols[c.file_path] = []
-                if c.symbol_name and c.symbol_name != "Module":
-                    file_symbols[c.file_path].append((c.symbol_name, c.chunk_type))
+            chunks = db.query(CodeChunk.file_path, CodeChunk.symbol_name, CodeChunk.chunk_type).filter(
+                CodeChunk.repository_id == repository_id
+            ).all()
+            for file_path, symbol_name, chunk_type in chunks:
+                if file_path not in file_symbols:
+                    file_symbols[file_path] = []
+                if symbol_name and symbol_name != "Module":
+                    file_symbols[file_path].append((symbol_name, chunk_type))
         except Exception as e:
             logger.error(f"[RAG] Failed to retrieve code chunks: {e}")
 

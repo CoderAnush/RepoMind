@@ -8,7 +8,9 @@ from app.models.user import User
 from app.models.repository import Repository
 from app.models.chat import ChatHistory
 from app.schemas.chat import ChatRequest, ChatResponse, ChatMessageResponse
+from app.core.logging import logger
 from app.services.rag import RAGService
+
 
 router = APIRouter()
 rag_service = RAGService()
